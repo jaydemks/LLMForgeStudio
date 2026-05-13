@@ -36,6 +36,15 @@ jobs:
           $outDir = "src/LLMForgeStudio.App/bin/Release/net8.0/win-x64/publish"
           New-Item -Path release -ItemType Directory -Force | Out-Null
           Copy-Item "$outDir/*" -Destination release -Recurse -Force
+          New-Item -Path "release/backends/python" -ItemType Directory -Force | Out-Null
+          Copy-Item "backends/python/train_stub.py" -Destination "release/backends/python" -Force
+          Copy-Item "backends/python/generate_stub.py" -Destination "release/backends/python" -Force
+          Copy-Item "backends/python/device_probe.py" -Destination "release/backends/python" -Force
+          Copy-Item "backends/python/requirements.txt" -Destination "release/backends/python" -Force
+          Copy-Item "backends/python/BACKEND_PROTOCOL.md" -Destination "release/backends/python" -Force
+          if (Test-Path "samples") {
+            Copy-Item "samples" -Destination "release/samples" -Recurse -Force
+          }
           Copy-Item "LICENSE" -Destination release -Force
           Copy-Item "THIRD_PARTY_NOTICES.md" -Destination release -Force
 
