@@ -1,0 +1,74 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  dependency-and-artifact-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Check .NET vulnerable packages
+        run: dotnet list src/LLMForgeStudio.App/LLMForgeStudio.App.csproj package --vulnerable --include-transitive
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python audit tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+
+      - name: Audit Python dependencies
+        working-directory: backends/python
+        run: pip-audit -r requirements.txt
+
+      - name: Publish Windows self-contained artifact
+        run: dotnet publish src/LLMForgeStudio.App/LLMForgeStudio.App.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
+
+      - name: Prepare scan bundle
+        run: |
+          mkdir -p security_bundle/backends/python
+          cp -r src/LLMForgeStudio.App/bin/Release/net8.0/win-x64/publish/* security_bundle/
+          cp backends/python/train_stub.py security_bundle/backends/python/
+          cp backends/python/generate_stub.py security_bundle/backends/python/
+          cp backends/python/device_probe.py security_bundle/backends/python/
+          cp backends/python/requirements.txt security_bundle/backends/python/
+          cp LICENSE security_bundle/
+          cp THIRD_PARTY_NOTICES.md security_bundle/
+          cd security_bundle
+          zip -r ../LLMForgeStudio-win-x64-security-scan.zip .
+
+      - name: Install ClamAV
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clamav
+
+      - name: Scan bundle with ClamAV
+        run: clamscan --recursive --infected --verbose LLMForgeStudio-win-x64-security-scan.zip security_bundle
+
+      - name: Upload security scan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-bundle
+          path: |
+            LLMForgeStudio-win-x64-security-scan.zip
+            security_bundle
