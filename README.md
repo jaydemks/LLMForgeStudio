@@ -2,6 +2,10 @@
 
 Desktop app (**.NET 8 + Avalonia**) to train and test local mini-LLMs on Windows with a guided click-first workflow.
 
+## Demo Video
+
+**Watch the demo on YouTube:** https://youtu.be/s9LBW09kp_8
+
 ## Realistic Expectations
 
 LLM Forge Studio helps you create, train and experiment with **local mini-LLMs** on your own machine.
