@@ -60,10 +60,24 @@ jobs:
       - name: Install ClamAV
         run: |
           sudo apt-get update
-          sudo apt-get install -y clamav
+          sudo apt-get install -y clamav clamav-freshclam
+          sudo freshclam
 
       - name: Scan bundle with ClamAV
-        run: clamscan --recursive --infected --verbose LLMForgeStudio-win-x64-security-scan.zip security_bundle
+        run: |
+          set +e
+          clamscan --recursive --infected --verbose LLMForgeStudio-win-x64-security-scan.zip security_bundle
+          SCAN_EXIT=$?
+          if [ "$SCAN_EXIT" -eq 0 ]; then
+            echo "ClamAV scan passed."
+            exit 0
+          elif [ "$SCAN_EXIT" -eq 1 ]; then
+            echo "Malware signature detected by ClamAV."
+            exit 1
+          else
+            echo "ClamAV failed with runtime error (exit code $SCAN_EXIT)."
+            exit 1
+          fi
 
       - name: Upload security scan artifact
         uses: actions/upload-artifact@v4
