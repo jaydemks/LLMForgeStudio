@@ -64,8 +64,3 @@ Output:
 ```text
 src/LLMForgeStudio.App/bin/Release/net8.0/win-x64/publish/LLMForgeStudio.App.exe
 ```
-
-For automated GitHub release artifacts:
-
-- publish a GitHub Release (for example `v0.1.0`)
-- workflow `.github/workflows/release-win-exe.yml` builds and uploads `LLMForgeStudio-win-x64.zip`
