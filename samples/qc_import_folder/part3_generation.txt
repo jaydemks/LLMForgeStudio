@@ -1,0 +1,3 @@
+Generated text should be non-empty and stylistically consistent with training data.
+Sampling parameters change diversity and determinism.
+Prompt wording influences continuation quality.

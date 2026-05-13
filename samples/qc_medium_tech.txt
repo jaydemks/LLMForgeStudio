@@ -1,0 +1,26 @@
+A tokenizer splits text into units.
+A character tokenizer uses single characters.
+A word tokenizer uses whitespace-separated terms.
+A BPE tokenizer merges frequent pairs.
+Training uses input and target token shifts.
+Loss should generally decrease during stable learning.
+Checkpoints must include model state and config.
+Generation quality depends on dataset consistency.
+
+Tokenization strategy affects sequence length and memory usage.
+Shorter token sequences can improve throughput per step.
+Vocabulary quality affects unknown token behavior.
+Batch construction must preserve deterministic x/y shifts.
+Validation loss is useful to detect overfitting trends.
+Learning rate that is too high can destabilize convergence.
+Gradient clipping can reduce exploding gradients.
+Checkpoint metadata should be enough to resume evaluation.
+
+Prompt quality affects generated continuation quality.
+Temperature controls randomness in next-token sampling.
+Top-k limits candidate tokens at each generation step.
+Seeded runs improve reproducibility for debugging.
+Smaller models learn faster but capture less structure.
+Larger models require stronger regularization and data diversity.
+Data cleaning reduces noise and improves signal quality.
+Consistent formatting improves tokenizer stability.

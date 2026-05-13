@@ -1,0 +1,104 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="LLMForgeStudio.App.App"
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme />
+    <Style Selector="Window:dark">
+      <Setter Property="Background" Value="#0B0F14"/>
+    </Style>
+    <Style Selector="Window:light">
+      <Setter Property="Background" Value="#F8FAFC"/>
+    </Style>
+    <Style Selector="TextBlock:dark">
+      <Setter Property="Foreground" Value="#E5E7EB"/>
+      <Setter Property="FontSize" Value="13"/>
+    </Style>
+    <Style Selector="TextBlock:light">
+      <Setter Property="Foreground" Value="#0F172A"/>
+      <Setter Property="FontSize" Value="13"/>
+    </Style>
+    <Style Selector="TextBlock.h1">
+      <Setter Property="FontSize" Value="25"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="TextBlock.h2">
+      <Setter Property="FontSize" Value="17"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="TextBlock.muted:dark">
+      <Setter Property="Foreground" Value="#94A3B8"/>
+    </Style>
+    <Style Selector="TextBlock.muted:light">
+      <Setter Property="Foreground" Value="#475569"/>
+    </Style>
+    <Style Selector="Border.card:dark">
+      <Setter Property="Background" Value="#111827"/>
+      <Setter Property="BorderBrush" Value="#233044"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="18"/>
+      <Setter Property="Padding" Value="18"/>
+      <Setter Property="Margin" Value="0,0,0,8"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Border.card:light">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="BorderBrush" Value="#CBD5E1"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="18"/>
+      <Setter Property="Padding" Value="18"/>
+      <Setter Property="Margin" Value="0,0,0,8"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Border.glass:dark">
+      <Setter Property="Background" Value="#66303F63"/>
+      <Setter Property="BorderBrush" Value="#99A5B4FC"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="Padding" Value="12"/>
+      <Setter Property="Margin" Value="0,0,0,8"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="BoxShadow" Value="0 10 26 0 #40000000"/>
+    </Style>
+    <Style Selector="Border.glass:light">
+      <Setter Property="Background" Value="#CCF0F6FF"/>
+      <Setter Property="BorderBrush" Value="#A37B7DD3"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="Padding" Value="12"/>
+      <Setter Property="Margin" Value="0,0,0,8"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="BoxShadow" Value="0 8 22 0 #26000000"/>
+    </Style>
+    <Style Selector="Button:dark">
+      <Setter Property="Background" Value="#1F2937"/>
+      <Setter Property="Foreground" Value="#F8FAFC"/>
+      <Setter Property="BorderBrush" Value="#334155"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="12,8"/>
+    </Style>
+    <Style Selector="Button:light">
+      <Setter Property="Background" Value="#E2E8F0"/>
+      <Setter Property="Foreground" Value="#0F172A"/>
+      <Setter Property="BorderBrush" Value="#94A3B8"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="12,8"/>
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#2563EB"/>
+      <Setter Property="BorderBrush" Value="#3B82F6"/>
+    </Style>
+    <Style Selector="TextBox:dark, ComboBox:dark, NumericUpDown:dark">
+      <Setter Property="Background" Value="#0F172A"/>
+      <Setter Property="Foreground" Value="#E5E7EB"/>
+      <Setter Property="BorderBrush" Value="#334155"/>
+      <Setter Property="CornerRadius" Value="10"/>
+    </Style>
+    <Style Selector="TextBox:light, ComboBox:light, NumericUpDown:light">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="Foreground" Value="#0F172A"/>
+      <Setter Property="BorderBrush" Value="#94A3B8"/>
+      <Setter Property="CornerRadius" Value="10"/>
+    </Style>
+  </Application.Styles>
+</Application>

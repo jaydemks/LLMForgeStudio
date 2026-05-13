@@ -1,0 +1,8 @@
+HELLO!!! hello... HELLO???
+Data---data---data.
+12345 ### @@ noise noise noise.
+Line with     many      spaces.
+MiXeD CaSe words with CAPS and lowercase.
+Symbols: %%% $$$ !!! ???
+Repeated repeated repeated repeated repeated.
+Tabs	and	spacing	are	inconsistent.

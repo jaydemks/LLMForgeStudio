@@ -1,0 +1,3 @@
+Training quality depends on dataset cleanliness and coherent structure.
+Checkpoint files should be generated without errors.
+Validation behavior should remain numerically stable.

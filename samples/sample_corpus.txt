@@ -1,0 +1,6 @@
+The morning sun rises over a small local model.
+The model does not know the world yet.
+It only learns patterns from the text we give it.
+Tokenization turns text into numbers.
+Training turns repeated mistakes into weights.
+Generation turns logits into the next token.

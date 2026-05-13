@@ -1,0 +1,57 @@
+name: Release Windows EXE
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish self-contained single-file EXE
+        run: >
+          dotnet publish src/LLMForgeStudio.App/LLMForgeStudio.App.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          /p:PublishSingleFile=true
+          /p:IncludeNativeLibrariesForSelfExtract=true
+
+      - name: Prepare release folder
+        shell: pwsh
+        run: |
+          $outDir = "src/LLMForgeStudio.App/bin/Release/net8.0/win-x64/publish"
+          New-Item -Path release -ItemType Directory -Force | Out-Null
+          Copy-Item "$outDir/*" -Destination release -Recurse -Force
+          Copy-Item "LICENSE" -Destination release -Force
+          Copy-Item "THIRD_PARTY_NOTICES.md" -Destination release -Force
+
+      - name: Zip artifact
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "release/*" -DestinationPath "LLMForgeStudio-win-x64.zip" -Force
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LLMForgeStudio-win-x64
+          path: LLMForgeStudio-win-x64.zip
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: LLMForgeStudio-win-x64.zip

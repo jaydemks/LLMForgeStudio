@@ -1,0 +1,401 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:dg="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="LLMForgeStudio.App.Views.MainWindow"
+        Width="1320" Height="840"
+        MinWidth="1100" MinHeight="720"
+        Title="LLM Forge Studio">
+  <Grid ColumnDefinitions="260,*" RowDefinitions="Auto,*" ClipToBounds="True">
+    <Border Grid.ColumnSpan="2" Background="{Binding HeaderBackground}" BorderBrush="{Binding DividerBrush}" BorderThickness="0,0,0,1" Padding="22,16">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Left">
+          <TextBlock Classes="h1" Text="LLM Forge Studio" />
+          <TextBlock Classes="muted" Text="{Binding HeaderSubtitleText}" />
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+          <Button Content="⚙" Command="{Binding ToggleSettingsCommand}" ToolTip.Tip="Settings" />
+          <Button Content="{Binding ButtonLoadProject}" Click="OnLoadProjectClick" ToolTip.Tip="Carica un progetto .llmforge.json e ripristina configurazioni, dataset e stato UI." />
+          <Button Content="{Binding ButtonSaveProject}" Click="OnSaveProjectClick" ToolTip.Tip="Salva tutte le impostazioni correnti in un file progetto riapribile." />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Border Grid.Row="1" Grid.Column="0" Background="{Binding SidebarBackground}" BorderBrush="{Binding DividerBrush}" BorderThickness="0,0,1,0" Padding="16">
+      <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="10">
+        <TextBlock Grid.Row="0" Classes="muted" Text="{Binding SectionWorkflowText}" />
+        <ListBox Grid.Row="1" ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}" Background="Transparent" BorderThickness="0" />
+
+        <Border Grid.Row="2" Classes="glass" Padding="10">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="muted" Text="Training Readiness" />
+            <TextBlock Classes="muted" Text="{Binding TokenizerStatusText}" TextWrapping="Wrap" />
+            <TextBlock Classes="muted" Text="{Binding BatchPreviewStatusText}" TextWrapping="Wrap" />
+            <TextBlock Classes="muted" Text="{Binding TrainingReadinessText}" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Row="4" Classes="card" Padding="10">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="muted" Text="Performance" />
+            <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6">
+              <Grid Grid.Row="0" Grid.Column="0">
+                <ProgressBar Minimum="0" Maximum="100" Value="{Binding CpuUsage}" Height="18" />
+                <TextBlock Text="{Binding CpuUsageText, StringFormat=CPU {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="10" />
+              </Grid>
+
+              <Grid Grid.Row="1" Grid.Column="0">
+                <ProgressBar Minimum="0" Maximum="100" Value="{Binding GpuUsage}" Height="18" />
+                <TextBlock Text="{Binding GpuUsageText, StringFormat=GPU {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="10" />
+              </Grid>
+
+              <Grid Grid.Row="2" Grid.Column="0">
+                <ProgressBar Minimum="0" Maximum="100" Value="{Binding RamUsage}" Height="18" />
+                <TextBlock Text="{Binding RamUsageText, StringFormat=RAM {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="10" />
+              </Grid>
+
+              <Grid Grid.Row="3" Grid.Column="0">
+                <ProgressBar Minimum="0" Maximum="100" Value="{Binding DiskUsage}" Height="18" />
+                <TextBlock Text="{Binding DiskUsageText, StringFormat=DISK {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="10" />
+              </Grid>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+      </Grid>
+    </Border>
+
+    <ScrollViewer Grid.Row="1" Grid.Column="1" Padding="22" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="2" HorizontalAlignment="Stretch" ClipToBounds="True">
+        <Border Classes="card" IsVisible="{Binding IsHardwareSection}">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="h2" Text="Hardware" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding HardwareAutoDetectText}" />
+            <TextBlock Text="{Binding HardwareCpuText}" />
+            <TextBlock Text="{Binding HardwareRamText}" />
+            <TextBlock Text="{Binding HardwareOsText}" />
+            <TextBlock Text="{Binding HardwareBackendText}" />
+            <ItemsControl ItemsSource="{Binding HardwareGpus}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Classes="muted" Text="{Binding StringFormat=GPU: {0}}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock VerticalAlignment="Center" Text="Force CPU training" />
+              <ToggleSwitch IsChecked="{Binding TrainingForceCpu}" />
+            </StackPanel>
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding HardwareNotesText}" />
+            <TextBlock Classes="muted" Text="{Binding BackendStatusText}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="Setup Backend" Command="{Binding SetupBackendCommand}" ToolTip.Tip="Configura automaticamente Python backend e pacchetti ottimali (NVIDIA/AMD/CPU)." />
+            </StackPanel>
+            <ProgressBar IsVisible="{Binding IsBackendBusy}" Minimum="0" Maximum="100" Value="{Binding BackendSetupProgress}" Height="10" />
+            <TextBlock IsVisible="{Binding IsBackendBusy}" Classes="muted" Text="{Binding BackendSetupStage}" />
+            <TextBlock IsVisible="{Binding IsBackendBusy}" Classes="muted" Text="{Binding BackendSetupProgress, StringFormat=Setup progress: {0}%}" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" IsVisible="{Binding IsDatasetSection}">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="h2" Text="Dataset" />
+            <TextBlock Classes="muted" Text="{Binding DatasetHelpText}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="Import Dataset" Click="OnImportDatasetClick" ToolTip.Tip="Importa un file .txt/.md/.csv, applica la pulizia configurata e aggiorna le statistiche dataset." />
+              <Button Content="Import Folder" Click="OnImportDatasetFolderClick" ToolTip.Tip="Importa una cartella e unisce tutti i file .txt/.md/.csv in un unico dataset." />
+              <TextBlock Classes="muted" VerticalAlignment="Center" Text="{Binding DatasetPath}" />
+            </StackPanel>
+            <TextBox Text="{Binding DatasetText}" AcceptsReturn="True" TextWrapping="Wrap" Height="170" HorizontalAlignment="Stretch" ToolTip.Tip="Area testo dataset: puoi incollare manualmente oppure modificare il contenuto importato." />
+            <TextBlock Classes="muted" Text="{Binding DatasetStatsText}" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" IsVisible="{Binding IsTokenizationSection}">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="h2" Text="Tokenization" />
+            <Grid ColumnDefinitions="220,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="10">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Tokenizer" VerticalAlignment="Center" />
+              <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding TokenizerKinds}" SelectedItem="{Binding SelectedTokenizerKind}" ToolTip.Tip="Scegli il tipo tokenizer; i parametri sotto vengono auto-adattati con preset consigliati." />
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Target vocab" VerticalAlignment="Center" />
+              <NumericUpDown Grid.Row="1" Grid.Column="1" Minimum="32" Maximum="100000" Value="{Binding TokenizerTargetVocabSize}" ToolTip.Tip="Dimensione obiettivo del vocabolario token. Più alto = più dettaglio, più memoria." />
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Min frequency" VerticalAlignment="Center" />
+              <NumericUpDown Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="1000" Value="{Binding TokenizerMinFrequency}" ToolTip.Tip="Frequenza minima per mantenere un token nel vocabolario (riduce rumore raro)." />
+              <TextBlock Grid.Row="3" Grid.Column="0" Text="Max merges" VerticalAlignment="Center" />
+              <NumericUpDown Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="100000" Value="{Binding TokenizerMaxMerges}" ToolTip.Tip="Numero massimo fusioni BPE. 0 significa nessuna fusione (utile per char/word puri)." />
+              <TextBlock Grid.Row="4" Grid.Column="1" Classes="muted" TextWrapping="Wrap" Text="{Binding TokenizerExplanation}" />
+            </Grid>
+            <TextBlock Classes="muted" Text="{Binding TokenizationStepGuide}" />
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button Classes="primary" Content="Train Tokenizer" Command="{Binding TrainTokenizerCommand}" ToolTip.Tip="Esegue il training tokenizer con i preset correnti e mostra i token più frequenti." />
+              <Button Content="Build x/y Preview" Command="{Binding BuildBatchPreviewCommand}" ToolTip.Tip="Costruisce una preview dei batch training dove Y è X shiftato di 1 token." />
+            </StackPanel>
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TokenizerRecommendationText}" />
+            <dg:DataGrid ItemsSource="{Binding VocabularyPreview}" Height="120" GridLinesVisibility="Horizontal" IsReadOnly="True" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" IsVisible="{Binding IsModelSection}">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="h2" Text="Model Config" />
+            <Grid ColumnDefinitions="160,*,160,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Vocab size" />
+              <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding ModelVocabSize}" Minimum="1" Maximum="200000" ToolTip.Tip="Numero token del vocabolario del modello (tipicamente derivato dal tokenizer)." />
+              <TextBlock Grid.Row="0" Grid.Column="2" Text="Block size" />
+              <NumericUpDown Grid.Row="0" Grid.Column="3" Value="{Binding ModelBlockSize}" Minimum="8" Maximum="8192" ToolTip.Tip="Lunghezza massima contesto in token per ogni finestra di training." />
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Layers" />
+              <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding ModelLayers}" Minimum="1" Maximum="96" ToolTip.Tip="Numero blocchi Transformer; più alto = più capacità ma training più lento." />
+              <TextBlock Grid.Row="1" Grid.Column="2" Text="Heads" />
+              <NumericUpDown Grid.Row="1" Grid.Column="3" Value="{Binding ModelHeads}" Minimum="1" Maximum="64" ToolTip.Tip="Numero attention heads; embedding deve essere divisibile per heads." />
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Embedding" />
+              <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding ModelEmbeddingSize}" Minimum="16" Maximum="8192" ToolTip.Tip="Dimensione vettore embedding per token. Impatta qualità e memoria." />
+              <TextBlock Grid.Row="2" Grid.Column="2" Text="Est. params" />
+              <Border Grid.Row="2" Grid.Column="3" Classes="glass" Padding="8,6">
+                <TextBlock Text="{Binding ParameterEstimate}" FontSize="15" FontWeight="SemiBold" />
+              </Border>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" IsVisible="{Binding IsTrainingSection}">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="h2" Text="Training" />
+            <Grid ColumnDefinitions="160,*,160,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Batch size" />
+              <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding TrainingBatchSize}" Minimum="1" Maximum="1024" ToolTip.Tip="Numero sequenze processate per step di training." />
+              <TextBlock Grid.Row="0" Grid.Column="2" Text="Max steps" />
+              <NumericUpDown Grid.Row="0" Grid.Column="3" Value="{Binding TrainingMaxSteps}" Minimum="1" Maximum="1000000" ToolTip.Tip="Numero massimo iterazioni di ottimizzazione." />
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Learning rate" />
+              <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding TrainingLearningRate}" Minimum="0" Maximum="1" Increment="0.0001" ToolTip.Tip="Passo di aggiornamento pesi. Troppo alto diverge, troppo basso rallenta." />
+              <TextBlock Grid.Row="1" Grid.Column="2" Text="Eval every" />
+              <NumericUpDown Grid.Row="1" Grid.Column="3" Value="{Binding TrainingEvalEvery}" Minimum="1" Maximum="100000" ToolTip.Tip="Ogni quanti step calcolare metrica validation e scrivere log esteso." />
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Python" />
+              <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding PythonPath}" ToolTip.Tip="Path all'interprete Python usato dal backend (es. .venv\\Scripts\\python.exe)." />
+              <TextBlock Grid.Row="3" Grid.Column="0" Text="Run directory" />
+              <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding RunDirectory}" ToolTip.Tip="Cartella output run: contiene train_log.jsonl, checkpoint e manifest del training." />
+            </Grid>
+            <TextBlock Classes="muted" Text="{Binding BackendStatusText}" />
+            <TextBlock Classes="muted" Text="{Binding RunDirectoryHelpText}" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingStepGuide}" />
+            <Border Classes="glass">
+              <TextBlock Classes="muted" Text="{Binding TrainingReadinessText}" TextWrapping="Wrap" />
+            </Border>
+            <ProgressBar IsVisible="{Binding IsTraining}" IsIndeterminate="True" Height="10" />
+            <TextBlock Classes="muted" Text="{Binding TrainingStatusText}" />
+            <Border Classes="glass" Padding="10">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="muted" Text="Training Live Stats" />
+                <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="4">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Classes="muted" Text="Last step" />
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LastStepText}" />
+                  <TextBlock Grid.Row="1" Grid.Column="0" Classes="muted" Text="Train loss" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LastTrainLossText}" />
+                  <TextBlock Grid.Row="2" Grid.Column="0" Classes="muted" Text="Val loss" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LastValLossText}" />
+                  <TextBlock Grid.Row="3" Grid.Column="0" Classes="muted" Text="Tok/s (avg)" />
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AvgTokensPerSecondText}" />
+                  <TextBlock Grid.Row="4" Grid.Column="0" Classes="muted" Text="Elapsed time" />
+                  <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding ElapsedTimeText}" />
+                  <TextBlock Grid.Row="5" Grid.Column="0" Classes="muted" Text="Overfitting" />
+                  <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding OverfittingStatusText}" TextWrapping="Wrap" />
+                </Grid>
+                <Border Classes="glass" Padding="8">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="muted" Text="Training Quality Score" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <TextBlock Text="{Binding TrainingQualityScoreText}" FontSize="20" FontWeight="Bold" Foreground="{Binding TrainingQualityColor}" />
+                      <TextBlock Text="{Binding TrainingQualityBandText}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Classes="muted" Text="{Binding TrainingQualityHintText}" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Border Background="#EF4444" CornerRadius="6" Padding="6,2"><TextBlock Text="0-39" Foreground="#FFFFFF" FontSize="11" /></Border>
+                      <Border Background="#F59E0B" CornerRadius="6" Padding="6,2"><TextBlock Text="40-59" Foreground="#FFFFFF" FontSize="11" /></Border>
+                      <Border Background="#84CC16" CornerRadius="6" Padding="6,2"><TextBlock Text="60-79" Foreground="#0F172A" FontSize="11" /></Border>
+                      <Border Background="#22C55E" CornerRadius="6" Padding="6,2"><TextBlock Text="80-100" Foreground="#0F172A" FontSize="11" /></Border>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Border>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Classes="primary" Content="Start Backend Training" IsEnabled="{Binding IsTrainingIdle}" Command="{Binding StartBackendTrainingCommand}" ToolTip.Tip="Avvia il training reale PyTorch in processo separato e aggiorna i log live." />
+              <Button Content="Cancel Training" IsEnabled="{Binding IsTraining}" Command="{Binding CancelBackendTrainingCommand}" ToolTip.Tip="Interrompe il processo di training backend in esecuzione." />
+              <Button Content="Open Output Folder" Click="OnOpenOutputClick" ToolTip.Tip="Apre la cartella output con log JSONL, checkpoint e manifest del run." />
+            </StackPanel>
+            <TextBlock Classes="muted" Text="{Binding ChartSummary}" />
+            <dg:DataGrid ItemsSource="{Binding TrainingLogs}" Height="150" GridLinesVisibility="Horizontal" IsReadOnly="True" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" IsVisible="{Binding IsGenerationSection}">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="h2" Text="Generation" />
+            <Grid ColumnDefinitions="160,*,160,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Temperature" />
+              <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding SamplingConfig.Temperature}" Minimum="0.05" Maximum="3" Increment="0.05" ToolTip.Tip="Controlla casualità: più basso = più deterministico, più alto = più creativo." />
+              <TextBlock Grid.Row="0" Grid.Column="2" Text="Top-k" />
+              <NumericUpDown Grid.Row="0" Grid.Column="3" Value="{Binding SamplingConfig.TopK}" Minimum="1" Maximum="100000" ToolTip.Tip="Limita il campionamento ai K token più probabili." />
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Seed" />
+              <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding SamplingConfig.Seed}" Minimum="0" Maximum="999999" ToolTip.Tip="Seed pseudo-casuale per rendere i risultati riproducibili." />
+              <TextBlock Grid.Row="1" Grid.Column="2" Text="Max new tokens" />
+              <NumericUpDown Grid.Row="1" Grid.Column="3" Value="{Binding SamplingConfig.MaxNewTokens}" Minimum="1" Maximum="8192" ToolTip.Tip="Numero massimo token da generare oltre al prompt." />
+              <TextBlock Grid.Row="2" Grid.Column="0" Text="Checkpoint" />
+              <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding CheckpointPath}" HorizontalAlignment="Stretch" ToolTip.Tip="Path al file checkpoint_manifest.json da usare per la generazione reale." />
+            </Grid>
+            <TextBox Text="{Binding GenerationPrompt}" Height="65" AcceptsReturn="True" TextWrapping="Wrap" HorizontalAlignment="Stretch" ToolTip.Tip="Prompt iniziale da cui parte la generazione autoregressiva." />
+            <TextBlock Classes="muted" Text="{Binding GenerationStatusText}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Classes="primary" Content="Generate from Checkpoint" IsEnabled="{Binding IsGenerationIdle}" Command="{Binding GenerateFromCheckpointCommand}" ToolTip.Tip="Carica il checkpoint selezionato e genera testo autoregressivo dal prompt." />
+            </StackPanel>
+            <Border Classes="glass">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="muted" Text="Generated Output" />
+                <TextBox Text="{Binding GeneratedText}" Height="220" AcceptsReturn="True" TextWrapping="Wrap" IsReadOnly="True" HorizontalAlignment="Stretch" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" IsVisible="{Binding IsGuideSection}">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="h2" Text="{Binding GuideTitleText}" />
+            <TextBlock Classes="muted" TextWrapping="Wrap"
+                       Text="{Binding GuideIntroText}" />
+            <Border Classes="card">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{Binding GuideThanksText}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="Open Tokenization Guide"
+                          Click="OnOpenLlmFromScratchGuideClick"
+                          ToolTip.Tip="Open the original llm-from-scratch tokenization guide in your browser." />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="h2" Text="1) Dataset" />
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{Binding GuideDatasetText}" />
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="h2" Text="2) Tokenization" />
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{Binding GuideTokenizationText}" />
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{Binding GuideTokenizationKeyText}" />
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="h2" Text="3) Model" />
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{Binding GuideModelText}" />
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{Binding GuideModelKeyText}" />
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="h2" Text="4) Training" />
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{Binding GuideTrainingText}" />
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{Binding GuideTrainingKeyText}" />
+              </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="h2" Text="5) Generation" />
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{Binding GuideGenerationText}" />
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{Binding GuideGenerationKeyText}" />
+              </StackPanel>
+            </Border>
+
+            <TextBlock Classes="muted" TextWrapping="Wrap"
+                       Text="{Binding GuideOrderText}" />
+            <TextBlock Classes="muted" TextWrapping="Wrap"
+                       Text="{Binding GuideSourceText}" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" IsVisible="{Binding IsTrainingSection}">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="h2" Text="Compatibility / Warnings" />
+            <ItemsControl ItemsSource="{Binding Warnings}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate><TextBlock TextWrapping="Wrap" Classes="muted" Text="• {Binding}" /></DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" HorizontalAlignment="Stretch" ClipToBounds="True">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="h2" Text="Console / Explanation" />
+            <TextBox Text="{Binding Log}"
+                     AcceptsReturn="True"
+                     TextWrapping="NoWrap"
+                     Height="300"
+                     MaxWidth="620"
+                     IsReadOnly="True"
+                     HorizontalAlignment="Left"
+                     ClipToBounds="True"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto" />
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.ColumnSpan="2" Grid.RowSpan="2" Background="#90000000" IsVisible="{Binding ShowSettingsOverlay}">
+      <Border Width="520" Background="{Binding ModalBackground}" BorderBrush="{Binding ModalBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="16"
+              HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="h2" Text="{Binding SettingsTitle}" />
+          <TextBlock Classes="muted" Text="{Binding LanguageLabel}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="IT" Command="{Binding ApplyLanguageItCommand}" />
+            <Button Content="EN" Command="{Binding ApplyLanguageEnCommand}" />
+          </StackPanel>
+          <TextBlock Classes="muted" Text="{Binding ThemeLabel}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{Binding DarkLabel}" Command="{Binding SetDarkThemeCommand}" />
+            <Button Content="{Binding LightLabel}" Command="{Binding SetLightThemeCommand}" />
+          </StackPanel>
+          <Button Content="{Binding AboutTitle}" Command="{Binding ToggleAboutCommand}" />
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Close" Command="{Binding ToggleSettingsCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <Border Grid.ColumnSpan="2" Grid.RowSpan="2" Background="#90000000" IsVisible="{Binding ShowAboutOverlay}">
+      <Border Width="560" Background="{Binding ModalBackground}" BorderBrush="{Binding ModalBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="16"
+              HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="h2" Text="{Binding AboutTitle}" />
+          <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding AboutText}" />
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Open Website" Click="OnOpenAuthorWebsiteClick" />
+            <Button Content="OK" Command="{Binding CloseAboutCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+  </Grid>
+</Window>
