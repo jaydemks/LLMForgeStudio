@@ -61,7 +61,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clamav clamav-freshclam
-          sudo freshclam
+          sudo systemctl stop clamav-freshclam || true
+          sudo pkill -f freshclam || true
+          sudo freshclam --stdout || echo "freshclam update skipped (using preloaded DB)"
 
       - name: Scan bundle with ClamAV
         run: |
