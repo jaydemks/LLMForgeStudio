@@ -2,6 +2,23 @@
 
 Desktop app (**.NET 8 + Avalonia**) to train and test local mini-LLMs on Windows with a guided click-first workflow.
 
+## Realistic Expectations
+
+LLM Forge Studio helps you create, train and experiment with **local mini-LLMs** on your own machine.
+
+It is designed for education, prototyping, and hands-on understanding of tokenization, training, and generation pipelines.  
+It is **not** meant to reproduce frontier models like ChatGPT on consumer hardware.
+If you have a few petabytes of VRAM, please send pics.
+
+What to expect in practice:
+
+- On typical consumer GPUs, small models and compact datasets are realistic.
+- Mid-size experiments may be possible depending on VRAM, sequence length, and training settings.
+- Large frontier-grade models require enterprise-scale compute, distributed training, and substantial budgets.
+
+If your goal is local learning and controlled experimentation, this tool is built exactly for that.
+
+
 ## Platform Support
 
 - Primary target: **Windows**
