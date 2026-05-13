@@ -53,7 +53,7 @@ Download the latest Windows build from GitHub Releases and run:
 LLMForgeStudio.App.exe
 ```
 
-## Build Windows EXE (manual)
+## Build Windows EXE DIY (manual)
 
 ```bash
 dotnet publish src/LLMForgeStudio.App/LLMForgeStudio.App.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
