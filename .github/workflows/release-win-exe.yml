@@ -61,8 +61,31 @@ jobs:
           name: LLMForgeStudio-win-x64
           path: LLMForgeStudio-win-x64.zip
 
+      - name: Resolve target release tag
+        id: release_tag
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ("${{ github.event_name }}" -eq "release") {
+            "tag=${{ github.event.release.tag_name }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            exit 0
+          }
+
+          $headers = @{
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            Accept        = "application/vnd.github+json"
+          }
+          $url = "https://api.github.com/repos/${{ github.repository }}/releases/latest"
+          $resp = Invoke-RestMethod -Uri $url -Headers $headers -Method Get
+          if (-not $resp.tag_name) {
+            throw "No latest release found. Publish at least one release first."
+          }
+          "tag=$($resp.tag_name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
       - name: Upload to GitHub Release
-        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.release_tag.outputs.tag }}
           files: LLMForgeStudio-win-x64.zip
+          overwrite_files: true
