@@ -10,6 +10,11 @@ Watch the demo on YouTube: https://youtu.be/s9LBW09kp_8
 > **Real multi-GPU and multi-machine cluster tests are not completed yet** and are planned in the next days.
 > Since this project is open and free, the community is welcome to test these scenarios and report issues with as much detail as possible (hardware, OS, config, logs, repro steps), so fixes can be shipped quickly.
 
+## v1.0.0 UI Screenshot (Advanced Training)
+
+<a href="docs/images/advanced-training-v1.0.0.png">
+  <img src="docs/images/advanced-training-v1.0.0.png" width="520" alt="Advanced Training v1.0.0" />
+</a>
 
 ## Positioning (v1.0.0)
 
