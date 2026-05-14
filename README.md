@@ -2,9 +2,6 @@
 
 Desktop app (**.NET 8 + Avalonia**) for building, fine-tuning, evaluating, and exporting local LLMs with a guided step-by-step workflow.
 
-## Demo Video (Previous Version)
-Watch the demo on YouTube: https://youtu.be/s9LBW09kp_8
-
 > **Important validation note (May 14, 2026):**
 > Current validation has been completed mainly on **small datasets**.
 > **Real multi-GPU and multi-machine cluster tests are not completed yet** and are planned in the next days.
@@ -15,6 +12,9 @@ Watch the demo on YouTube: https://youtu.be/s9LBW09kp_8
 <a href="docs/images/advanced-training-v1.0.0.png">
   <img src="docs/images/advanced-training-v1.0.0.png" width="520" alt="Advanced Training v1.0.0" />
 </a>
+
+## Demo Video (Previous Version v0.x.x)
+Watch the demo on YouTube: https://youtu.be/s9LBW09kp_8
 
 ## Positioning (v1.0.0)
 
