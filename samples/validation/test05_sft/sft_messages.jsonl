@@ -1,0 +1,2 @@
+{"messages":[{"role":"system","content":"Rispondi in modo tecnico ma breve."},{"role":"user","content":"Definisci gradient clipping."},{"role":"assistant","content":"Gradient clipping limita la norma dei gradienti per ridurre instabilità numeriche durante il training."}]}
+{"messages":[{"role":"user","content":"A cosa serve il warmup del learning rate?"},{"role":"assistant","content":"Il warmup aumenta gradualmente il learning rate iniziale per evitare update troppo aggressivi nelle prime iterazioni."}]}

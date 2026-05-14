@@ -13,4 +13,6 @@ public sealed class BackendJobSpec
     public ModelConfig Model { get; set; } = new();
     public TrainingConfig Training { get; set; } = new();
     public SamplingConfig Sampling { get; set; } = new();
+    public string ClusterProfileName { get; set; } = "single-node";
+    public string ClusterJobDescriptorPath { get; set; } = string.Empty;
 }

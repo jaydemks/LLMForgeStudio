@@ -1,0 +1,4 @@
+id,text
+1,"Training uses shifted x/y token targets"
+2,"Validation loss trend helps detect overfitting"
+3,"Checkpoint metadata must be enough for resume"

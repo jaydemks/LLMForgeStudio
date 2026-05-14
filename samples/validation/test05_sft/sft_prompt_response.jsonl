@@ -1,0 +1,3 @@
+{"prompt":"Spiega cos'è un tokenizer in due frasi.","response":"Un tokenizer converte testo in token numerici. Questa rappresentazione permette al modello di apprendere pattern statistici."}
+{"prompt":"Cos'è la val loss?","response":"La validation loss misura l'errore su dati non visti in training. Se cresce mentre train loss scende, può esserci overfitting."}
+{"prompt":"Perché usare checkpoint?","response":"I checkpoint salvano stato modello e metadati. Servono per resume, confronto esperimenti e rollback sicuro."}

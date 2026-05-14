@@ -4,6 +4,9 @@ public enum TokenizerKind
 {
     Character,
     Word,
+    ByteLevelBpe,
+    Unigram,
+    WordPiece,
     SimpleBpe,
     HybridFallback,
     HierarchicalExperimental

@@ -1,0 +1,4 @@
+Tokenizer stability starts from consistent text layout.
+Dataset cleaning should normalize noisy whitespace.
+Repeated lines are useful to test dedup line-level behavior.
+Repeated lines are useful to test dedup line-level behavior.

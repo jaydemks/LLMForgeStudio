@@ -70,6 +70,24 @@
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
       <Setter Property="BoxShadow" Value="0 8 22 0 #26000000"/>
     </Style>
+    <Style Selector="Border.wizardbubble:dark">
+      <Setter Property="Background" Value="#4D1E293B"/>
+      <Setter Property="BorderBrush" Value="#7D60A5FA"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Padding" Value="10,8"/>
+      <Setter Property="Margin" Value="0,0,0,6"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Border.wizardbubble:light">
+      <Setter Property="Background" Value="#EAF3FF"/>
+      <Setter Property="BorderBrush" Value="#94A3B8"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Padding" Value="10,8"/>
+      <Setter Property="Margin" Value="0,0,0,6"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
     <Style Selector="Button:dark">
       <Setter Property="Background" Value="#1F2937"/>
       <Setter Property="Foreground" Value="#F8FAFC"/>

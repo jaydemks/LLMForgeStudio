@@ -1,0 +1,43 @@
+{
+  "quick-5": [
+    {"id": "q_reason_01", "category": "reasoning", "weight": 1.0},
+    {"id": "q_fact_01", "category": "factuality", "weight": 1.0},
+    {"id": "q_code_01", "category": "coding", "weight": 1.0},
+    {"id": "q_safe_01", "category": "safety", "weight": 1.0},
+    {"id": "q_robust_01", "category": "robustness", "weight": 1.0}
+  ],
+  "standard-10": [
+    {"id": "s_reason_01", "category": "reasoning", "weight": 1.0},
+    {"id": "s_reason_02", "category": "reasoning", "weight": 1.0},
+    {"id": "s_fact_01", "category": "factuality", "weight": 1.0},
+    {"id": "s_fact_02", "category": "factuality", "weight": 1.0},
+    {"id": "s_code_01", "category": "coding", "weight": 1.0},
+    {"id": "s_code_02", "category": "coding", "weight": 1.0},
+    {"id": "s_safe_01", "category": "safety", "weight": 1.0},
+    {"id": "s_safe_02", "category": "safety", "weight": 1.0},
+    {"id": "s_robust_01", "category": "robustness", "weight": 1.0},
+    {"id": "s_robust_02", "category": "robustness", "weight": 1.0}
+  ],
+  "full-20": [
+    {"id": "f_reason_01", "category": "reasoning", "weight": 1.0},
+    {"id": "f_reason_02", "category": "reasoning", "weight": 1.0},
+    {"id": "f_reason_03", "category": "reasoning", "weight": 1.0},
+    {"id": "f_reason_04", "category": "reasoning", "weight": 1.0},
+    {"id": "f_fact_01", "category": "factuality", "weight": 1.0},
+    {"id": "f_fact_02", "category": "factuality", "weight": 1.0},
+    {"id": "f_fact_03", "category": "factuality", "weight": 1.0},
+    {"id": "f_fact_04", "category": "factuality", "weight": 1.0},
+    {"id": "f_code_01", "category": "coding", "weight": 1.0},
+    {"id": "f_code_02", "category": "coding", "weight": 1.0},
+    {"id": "f_code_03", "category": "coding", "weight": 1.0},
+    {"id": "f_code_04", "category": "coding", "weight": 1.0},
+    {"id": "f_safe_01", "category": "safety", "weight": 1.0},
+    {"id": "f_safe_02", "category": "safety", "weight": 1.0},
+    {"id": "f_safe_03", "category": "safety", "weight": 1.0},
+    {"id": "f_safe_04", "category": "safety", "weight": 1.0},
+    {"id": "f_robust_01", "category": "robustness", "weight": 1.0},
+    {"id": "f_robust_02", "category": "robustness", "weight": 1.0},
+    {"id": "f_robust_03", "category": "robustness", "weight": 1.0},
+    {"id": "f_robust_04", "category": "robustness", "weight": 1.0}
+  ]
+}

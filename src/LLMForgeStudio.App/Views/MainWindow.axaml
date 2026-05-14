@@ -17,6 +17,7 @@
         </StackPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
           <Button Content="⚙" Command="{Binding ToggleSettingsCommand}" ToolTip.Tip="Settings" />
+          <Button Content="{Binding ButtonGuide}" Command="{Binding OpenGuideCommand}" ToolTip.Tip="Apri la guida step-by-step del workflow." />
           <Button Content="{Binding ButtonLoadProject}" Click="OnLoadProjectClick" ToolTip.Tip="Carica un progetto .llmforge.json e ripristina configurazioni, dataset e stato UI." />
           <Button Content="{Binding ButtonSaveProject}" Click="OnSaveProjectClick" ToolTip.Tip="Salva tutte le impostazioni correnti in un file progetto riapribile." />
         </StackPanel>
@@ -127,7 +128,15 @@
               <NumericUpDown Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="100000" Value="{Binding TokenizerMaxMerges}" ToolTip.Tip="Numero massimo fusioni BPE. 0 significa nessuna fusione (utile per char/word puri)." />
               <TextBlock Grid.Row="4" Grid.Column="1" Classes="muted" TextWrapping="Wrap" Text="{Binding TokenizerExplanation}" />
             </Grid>
-            <TextBlock Classes="muted" Text="{Binding TokenizationStepGuide}" />
+            <Border Classes="wizardbubble">
+              <TextBlock Classes="muted" Text="{Binding TokenizationStepGuide}" TextWrapping="Wrap" />
+            </Border>
+            <Border Classes="wizardbubble">
+              <TextBlock Classes="muted" Text="{Binding TokenizerPresetBadgeText}" TextWrapping="Wrap" />
+            </Border>
+            <Border Classes="wizardbubble">
+              <TextBlock Classes="muted" Text="{Binding TokenizerIdealValuesText}" TextWrapping="Wrap" />
+            </Border>
             <StackPanel Orientation="Horizontal" Spacing="10">
               <Button Classes="primary" Content="Train Tokenizer" Command="{Binding TrainTokenizerCommand}" ToolTip.Tip="Esegue il training tokenizer con i preset correnti e mostra i token più frequenti." />
               <Button Content="Build x/y Preview" Command="{Binding BuildBatchPreviewCommand}" ToolTip.Tip="Costruisce una preview dei batch training dove Y è X shiftato di 1 token." />
@@ -176,11 +185,143 @@
               <TextBlock Grid.Row="3" Grid.Column="0" Text="Run directory" />
               <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding RunDirectory}" ToolTip.Tip="Cartella output run: contiene train_log.jsonl, checkpoint e manifest del training." />
             </Grid>
+            <Expander Header="Advanced Training (Serious)" IsExpanded="{Binding ShowAdvancedTraining}">
+              <StackPanel Spacing="10" Margin="0,8,0,0">
+                <Grid ColumnDefinitions="160,*,160,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Profile" />
+                  <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding TrainingProfileOptions}" SelectedItem="{Binding SelectedTrainingProfile}" />
+                  <TextBlock Grid.Row="0" Grid.Column="2" Text="Optimizer" />
+                  <ComboBox Grid.Row="0" Grid.Column="3" ItemsSource="{Binding OptimizerOptions}" SelectedItem="{Binding TrainingOptimizer}" />
+
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Scheduler" />
+                  <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding SchedulerOptions}" SelectedItem="{Binding TrainingScheduler}" />
+                  <TextBlock Grid.Row="1" Grid.Column="2" Text="Warmup steps" />
+                  <NumericUpDown Grid.Row="1" Grid.Column="3" Minimum="0" Maximum="10000000" Value="{Binding TrainingWarmupSteps}" />
+
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Checkpoint every" />
+                  <NumericUpDown Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="1000000" Value="{Binding TrainingCheckpointEvery}" />
+                  <TextBlock Grid.Row="2" Grid.Column="2" Text="Mixed precision" />
+                  <ToggleSwitch Grid.Row="2" Grid.Column="3" IsChecked="{Binding TrainingMixedPrecision}" />
+
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Precision" />
+                  <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding PrecisionOptions}" SelectedItem="{Binding TrainingPrecision}" />
+                  <TextBlock Grid.Row="3" Grid.Column="2" Text="Grad clipping" />
+                  <ToggleSwitch Grid.Row="3" Grid.Column="3" IsChecked="{Binding TrainingGradientClipping}" />
+
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Clip norm" />
+                  <NumericUpDown Grid.Row="4" Grid.Column="1" Minimum="0" Maximum="100" Increment="0.1" Value="{Binding TrainingGradientClipNorm}" />
+                  <TextBlock Grid.Row="4" Grid.Column="2" Text="Dedup dataset" />
+                  <ToggleSwitch Grid.Row="4" Grid.Column="3" IsChecked="{Binding TrainingDedup}" />
+
+                  <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal" Spacing="10">
+                    <CheckBox Content="Lines" IsChecked="{Binding TrainingDedupLines}" />
+                    <CheckBox Content="Paragraphs" IsChecked="{Binding TrainingDedupParagraphs}" />
+                    <CheckBox Content="Normalize Unicode" IsChecked="{Binding TrainingNormalizeUnicode}" />
+                    <CheckBox Content="Collapse whitespace" IsChecked="{Binding TrainingCollapseWhitespace}" />
+                  </StackPanel>
+
+                  <TextBlock Grid.Row="6" Grid.Column="0" Text="Curriculum learning" />
+                  <ToggleSwitch Grid.Row="6" Grid.Column="1" IsChecked="{Binding TrainingCurriculumLearning}" />
+                  <TextBlock Grid.Row="6" Grid.Column="2" Text="Warmup ratio" />
+                  <NumericUpDown Grid.Row="6" Grid.Column="3" Minimum="0.05" Maximum="0.9" Increment="0.01" Value="{Binding TrainingCurriculumWarmupRatio}" />
+
+                  <TextBlock Grid.Row="7" Grid.Column="0" Text="Distributed mode" />
+                  <ToggleSwitch Grid.Row="7" Grid.Column="1" IsChecked="{Binding TrainingDistributed}" />
+                  <TextBlock Grid.Row="7" Grid.Column="2" Text="Post quantization" />
+                  <ToggleSwitch Grid.Row="7" Grid.Column="3" IsChecked="{Binding TrainingEnablePostQuantization}" />
+
+                  <TextBlock Grid.Row="8" Grid.Column="0" Text="Multi-GPU strategy" />
+                  <ComboBox Grid.Row="8" Grid.Column="1" ItemsSource="{Binding MultiGpuStrategyOptions}" SelectedItem="{Binding TrainingMultiGpuStrategy}" />
+                  <TextBlock Grid.Row="8" Grid.Column="2" Text="Grad accum steps" />
+                  <NumericUpDown Grid.Row="8" Grid.Column="3" Minimum="1" Maximum="512" Value="{Binding TrainingGradientAccumulationSteps}" />
+
+                  <TextBlock Grid.Row="9" Grid.Column="0" Text="Quant profile" />
+                  <ComboBox Grid.Row="9" Grid.Column="1" ItemsSource="{Binding QuantizationProfileOptions}" SelectedItem="{Binding TrainingQuantizationProfile}" />
+                  <TextBlock Grid.Row="9" Grid.Column="2" Text="Quant calib samples" />
+                  <NumericUpDown Grid.Row="9" Grid.Column="3" Minimum="1" Maximum="100000" Value="{Binding TrainingQuantizationCalibrationSamples}" />
+                </Grid>
+                <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingProfileHintText}" />
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <CheckBox Content="Auto device map" IsChecked="{Binding TrainingAutoDeviceMap}" />
+                  <CheckBox Content="Orchestrate pipeline stages" IsChecked="{Binding TrainingOrchestratePipelineStages}" />
+                </StackPanel>
+                <Grid ColumnDefinitions="160,*" RowDefinitions="Auto" ColumnSpacing="12">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Cluster profile" />
+                  <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding ClusterProfileOptions}" SelectedItem="{Binding TrainingClusterProfileName}" />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <CheckBox Content="Stage: data" IsChecked="{Binding TrainingPipelineRunDataStage}" />
+                  <CheckBox Content="Stage: preprocess" IsChecked="{Binding TrainingPipelineRunPreprocessStage}" />
+                  <CheckBox Content="Stage: train" IsChecked="{Binding TrainingPipelineRunTrainStage}" />
+                  <CheckBox Content="Stage: eval" IsChecked="{Binding TrainingPipelineRunEvalStage}" />
+                </StackPanel>
+
+                <Grid ColumnDefinitions="160,*,160,*" RowDefinitions="Auto" ColumnSpacing="12" RowSpacing="8">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Alignment mode" />
+                  <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding AlignmentOptions}" SelectedItem="{Binding TrainingAlignmentMode}" />
+                  <TextBlock Grid.Row="0" Grid.Column="2" Text="Eval suite" />
+                  <ComboBox Grid.Row="0" Grid.Column="3" ItemsSource="{Binding EvalSuiteOptions}" SelectedItem="{Binding TrainingEvalSuite}" />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <CheckBox Content="Orchestrate SFT-DPO-RLHF" IsChecked="{Binding TrainingFineTuningOrchestration}" />
+                  <CheckBox Content="SFT" IsChecked="{Binding TrainingFineTuneStageSft}" />
+                  <CheckBox Content="DPO" IsChecked="{Binding TrainingFineTuneStageDpo}" />
+                  <CheckBox Content="RLHF" IsChecked="{Binding TrainingFineTuneStageRlhf}" />
+                </StackPanel>
+                <Grid ColumnDefinitions="160,*" RowDefinitions="Auto" ColumnSpacing="12">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="RLHF feedback source" />
+                  <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding RlhfFeedbackOptions}" SelectedItem="{Binding TrainingRlhfFeedbackSource}" />
+                </Grid>
+                <Grid ColumnDefinitions="160,*" RowDefinitions="Auto" ColumnSpacing="12">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="RLHF feedback path" />
+                  <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TrainingRlhfFeedbackPath}" />
+                </Grid>
+                <TextBlock Classes="muted" Text="{Binding RlhfCollectedCountText}" />
+                <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="RLHF prompt" />
+                  <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding RlhfDraftPrompt}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="52" />
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Preferred answer" />
+                  <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RlhfDraftChosen}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="52" />
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Rejected answer" />
+                  <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RlhfDraftRejected}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="52" />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="Add RLHF feedback" Command="{Binding AddRlhfFeedbackCommand}" />
+                  <Button Content="Clear RLHF feedback" Command="{Binding ClearRlhfFeedbackCommand}" />
+                </StackPanel>
+                <Grid ColumnDefinitions="160,*,160,*" RowDefinitions="Auto" ColumnSpacing="12">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Reward modeling" />
+                  <ToggleSwitch Grid.Row="0" Grid.Column="1" IsChecked="{Binding TrainingRewardModelingEnabled}" />
+                  <TextBlock Grid.Row="0" Grid.Column="2" Text="Safety policy" />
+                  <ComboBox Grid.Row="0" Grid.Column="3" ItemsSource="{Binding SafetyPolicyOptions}" SelectedItem="{Binding TrainingSafetyPolicyMode}" />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <CheckBox Content="Export ONNX" IsChecked="{Binding TrainingExportOnnx}" />
+                  <CheckBox Content="Export GGUF" IsChecked="{Binding TrainingExportGguf}" />
+                  <CheckBox Content="Enable QAT path" IsChecked="{Binding TrainingEnableQatPath}" />
+                </StackPanel>
+                <Grid ColumnDefinitions="160,*" RowDefinitions="Auto" ColumnSpacing="12">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="QAT fine-tune steps" />
+                  <NumericUpDown Grid.Row="0" Grid.Column="1" Minimum="1" Maximum="1000000" Value="{Binding TrainingQatFineTuneSteps}" />
+                </Grid>
+              </StackPanel>
+            </Expander>
             <TextBlock Classes="muted" Text="{Binding BackendStatusText}" />
             <TextBlock Classes="muted" Text="{Binding RunDirectoryHelpText}" />
-            <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingStepGuide}" />
-            <Border Classes="glass">
+            <Border Classes="wizardbubble">
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingWizardMiniText}" />
+            </Border>
+            <Border Classes="wizardbubble">
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingWizardDetailedText}" />
+            </Border>
+            <Border Classes="wizardbubble">
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingStepGuide}" />
+            </Border>
+            <Border Classes="wizardbubble">
               <TextBlock Classes="muted" Text="{Binding TrainingReadinessText}" TextWrapping="Wrap" />
+            </Border>
+            <Border Classes="wizardbubble">
+              <TextBlock Classes="muted" Text="{Binding TrainingPreflightText}" TextWrapping="Wrap" />
             </Border>
             <ProgressBar IsVisible="{Binding IsTraining}" IsIndeterminate="True" Height="10" />
             <TextBlock Classes="muted" Text="{Binding TrainingStatusText}" />
@@ -215,6 +356,23 @@
                       <Border Background="#84CC16" CornerRadius="6" Padding="6,2"><TextBlock Text="60-79" Foreground="#0F172A" FontSize="11" /></Border>
                       <Border Background="#22C55E" CornerRadius="6" Padding="6,2"><TextBlock Text="80-100" Foreground="#0F172A" FontSize="11" /></Border>
                     </StackPanel>
+                  </StackPanel>
+                </Border>
+                <Border Classes="glass" Padding="8">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="muted" Text="Eval Gate" />
+                    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="4">
+                      <TextBlock Grid.Row="0" Grid.Column="0" Classes="muted" Text="Eval suite" />
+                      <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding EvalSuiteResultText}" />
+                      <TextBlock Grid.Row="1" Grid.Column="0" Classes="muted" Text="Avg score" />
+                      <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding EvalAverageScoreText}" />
+                      <TextBlock Grid.Row="2" Grid.Column="0" Classes="muted" Text="Band" />
+                      <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding EvalBandText}" />
+                      <TextBlock Grid.Row="3" Grid.Column="0" Classes="muted" Text="Gate" />
+                      <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding EvalGateText}" />
+                      <TextBlock Grid.Row="4" Grid.Column="0" Classes="muted" Text="Threshold" />
+                      <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding EvalGateThresholdText}" />
+                    </Grid>
                   </StackPanel>
                 </Border>
               </StackPanel>
@@ -327,6 +485,9 @@
                        Text="{Binding GuideOrderText}" />
             <TextBlock Classes="muted" TextWrapping="Wrap"
                        Text="{Binding GuideSourceText}" />
+            <Border Classes="glass" Padding="8">
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding RoadmapChecklistText}" />
+            </Border>
           </StackPanel>
         </Border>
 

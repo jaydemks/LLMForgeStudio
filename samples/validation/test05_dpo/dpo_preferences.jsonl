@@ -1,0 +1,2 @@
+{"prompt":"Spiega curriculum learning.","chosen":"Il curriculum learning espone prima esempi più semplici e poi più complessi, migliorando stabilità iniziale.","rejected":"È una tecnica solo per aumentare la dimensione del dataset senza cambiare il training."}
+{"prompt":"Che differenza c'è tra train loss e val loss?","chosen":"La train loss è l'errore sui dati visti dal modello; la val loss è su dati separati e misura generalizzazione.","rejected":"Sono identiche e si calcolano sempre sugli stessi batch."}

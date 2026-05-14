@@ -1,0 +1,3 @@
+{"prompt":"Scrivi una risposta educata a una critica.","chosen":"Grazie per il feedback, lo userò per migliorare la qualità del risultato.","rejected":"Non mi interessa la critica, il risultato va bene così."}
+{"prompt":"Come comunichi un errore tecnico all'utente?","chosen":"Ho identificato l'errore, propongo questi passaggi di correzione e un controllo finale.","rejected":"Si è rotto, non posso farci nulla."}
+{"prompt":"Come rispondi a una domanda sensibile?","chosen":"Posso aiutarti con informazioni sicure e generali, evitando dettagli rischiosi.","rejected":"Ti do direttamente istruzioni rischiose senza limitazioni."}

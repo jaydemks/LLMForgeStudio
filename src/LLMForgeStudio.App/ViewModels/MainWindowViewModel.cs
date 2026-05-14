@@ -8,8 +8,12 @@ using Avalonia;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using LLMForgeStudio.App.Core.Backend;
+using LLMForgeStudio.App.Core.Alignment;
 using LLMForgeStudio.App.Core.Dataset;
+using LLMForgeStudio.App.Core.Diagnostics;
 using LLMForgeStudio.App.Core.Generation;
+using LLMForgeStudio.App.Core.Cluster;
+using LLMForgeStudio.App.Core.Guidance;
 using LLMForgeStudio.App.Core.Hardware;
 using LLMForgeStudio.App.Core.Project;
 using LLMForgeStudio.App.Core.Tokenization;
@@ -66,7 +70,14 @@ public sealed class MainWindowViewModel : ObservableObject
     private string _tokenizerStatusText = "Tokenizer not trained yet.";
     private string _batchPreviewStatusText = "x/y preview not built yet.";
     private string _trainingStatusText = "Training idle.";
+    private string _rlhfDraftPrompt = string.Empty;
+    private string _rlhfDraftChosen = string.Empty;
+    private string _rlhfDraftRejected = string.Empty;
     private DateTimeOffset? _trainingStartedAtUtc;
+    private bool _showAdvancedTraining;
+    private string _selectedTrainingProfile = "Custom";
+    private EvalSummarySnapshot? _lastEvalSummary;
+    private readonly UiDebugLogger _uiDebugLogger = new();
 
     public ObservableCollection<string> Sections { get; } = new(new[] { "Hardware", "Dataset", "Tokenization", "Model", "Training", "Generation", "Guide" });
     public ObservableCollection<TokenizerKind> TokenizerKinds { get; } = new(Enum.GetValues<TokenizerKind>());
@@ -74,6 +85,18 @@ public sealed class MainWindowViewModel : ObservableObject
     public ObservableCollection<string> Warnings { get; } = new();
     public ObservableCollection<TrainingLogEntry> TrainingLogs { get; } = new();
     public ObservableCollection<string> HardwareGpus { get; } = new();
+    public ObservableCollection<string> OptimizerOptions { get; } = new(new[] { "adamw", "lion", "adafactor" });
+    public ObservableCollection<string> SchedulerOptions { get; } = new(new[] { "none", "cosine", "linear" });
+    public ObservableCollection<string> PrecisionOptions { get; } = new(new[] { "fp16", "bf16" });
+    public ObservableCollection<string> MultiGpuStrategyOptions { get; } = new(new[] { "none", "ddp", "fsdp" });
+    public ObservableCollection<string> QuantizationProfileOptions { get; } = new(new[] { "dynamic-int8", "ptq-int8", "ptq-int4" });
+    public ObservableCollection<string> AlignmentOptions { get; } = new(new[] { "none", "sft", "dpo", "rlhf" });
+    public ObservableCollection<string> RlhfFeedbackOptions { get; } = new(new[] { "inline", "jsonl-human-feedback", "external-import" });
+    public ObservableCollection<string> SafetyPolicyOptions { get; } = new(new[] { "standard", "strict", "research" });
+    public ObservableCollection<string> EvalSuiteOptions { get; } = new(new[] { "basic", "quick-5", "standard-10", "full-20" });
+    public ObservableCollection<string> TrainingProfileOptions { get; } = new(new[] { "Custom", "Tiny", "Balanced", "Serious", "Research", "Cluster" });
+    public ObservableCollection<string> ClusterProfileOptions { get; } = new(ClusterProfileManager.BuiltIns.Select(x => x.Name));
+    public ObservableCollection<RlhfFeedbackRecord> RlhfCollectedFeedback { get; } = new();
 
     public TextCleanerConfig Cleaner { get; } = new();
     public TokenizerConfig TokenizerConfig { get; } = new();
@@ -100,6 +123,9 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand SetDarkThemeCommand { get; }
     public ICommand WizardGoCommand { get; }
     public ICommand DisableWizardCommand { get; }
+    public ICommand AddRlhfFeedbackCommand { get; }
+    public ICommand ClearRlhfFeedbackCommand { get; }
+    public ICommand OpenGuideCommand { get; }
 
     public MainWindowViewModel()
     {
@@ -122,6 +148,9 @@ public sealed class MainWindowViewModel : ObservableObject
         SetDarkThemeCommand = new RelayCommand(() => ApplyTheme(false));
         WizardGoCommand = new RelayCommand(GoToWizardTarget);
         DisableWizardCommand = new RelayCommand(() => WizardEnabled = false);
+        AddRlhfFeedbackCommand = new RelayCommand(AddRlhfFeedback);
+        ClearRlhfFeedbackCommand = new RelayCommand(ClearRlhfFeedback);
+        OpenGuideCommand = new RelayCommand(() => SelectedSection = "Guide");
 
         // Ensure initial tokenizer UI fields match the default selected tokenizer.
         ApplyRecommendedTokenizerSettings(_selectedTokenizerKind);
@@ -154,7 +183,12 @@ public sealed class MainWindowViewModel : ObservableObject
     public string DatasetText
     {
         get => _datasetText;
-        set { if (SetProperty(ref _datasetText, value)) RefreshStats(); }
+        set
+        {
+            if (!SetProperty(ref _datasetText, value)) return;
+            RefreshStats();
+            OnPropertyChanged(nameof(TokenizerIdealValuesText));
+        }
     }
 
     public string DatasetPath
@@ -314,6 +348,8 @@ public sealed class MainWindowViewModel : ObservableObject
                 OnPropertyChanged(nameof(TokenizerMinFrequency));
                 OnPropertyChanged(nameof(TokenizerMaxMerges));
                 OnPropertyChanged(nameof(TokenizerRecommendationText));
+                OnPropertyChanged(nameof(TokenizerPresetBadgeText));
+                OnPropertyChanged(nameof(TokenizerIdealValuesText));
                 RaiseModelTrainingBindingsChanged();
                 OnPropertyChanged(nameof(ParameterEstimate));
                 RefreshWarnings();
@@ -482,8 +518,507 @@ public sealed class MainWindowViewModel : ObservableObject
             RefreshWarnings();
         }
     }
+    public bool ShowAdvancedTraining
+    {
+        get => _showAdvancedTraining;
+        set => SetProperty(ref _showAdvancedTraining, value);
+    }
+    public string SelectedTrainingProfile
+    {
+        get => _selectedTrainingProfile;
+        set
+        {
+            if (!SetProperty(ref _selectedTrainingProfile, value)) return;
+            ApplyTrainingProfile(value);
+            RaiseModelTrainingBindingsChanged();
+            RefreshWarnings();
+            OnPropertyChanged(nameof(TrainingProfileHintText));
+        }
+    }
+    public string TrainingProfileHintText => GuidedDefaultsEngine.DescribeTrainingProfile(SelectedTrainingProfile);
+    public string TrainingOptimizer
+    {
+        get => TrainingConfig.Optimizer;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? "adamw" : value.Trim().ToLowerInvariant();
+            if (TrainingConfig.Optimizer == next) return;
+            TrainingConfig.Optimizer = next;
+            OnPropertyChanged();
+        }
+    }
+    public string TrainingScheduler
+    {
+        get => TrainingConfig.Scheduler;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? "none" : value.Trim().ToLowerInvariant();
+            if (TrainingConfig.Scheduler == next) return;
+            TrainingConfig.Scheduler = next;
+            OnPropertyChanged();
+        }
+    }
+    public int TrainingWarmupSteps
+    {
+        get => TrainingConfig.WarmupSteps;
+        set
+        {
+            if (TrainingConfig.WarmupSteps == value) return;
+            TrainingConfig.WarmupSteps = Math.Max(0, value);
+            OnPropertyChanged();
+        }
+    }
+    public bool TrainingMixedPrecision
+    {
+        get => TrainingConfig.MixedPrecision;
+        set
+        {
+            if (TrainingConfig.MixedPrecision == value) return;
+            TrainingConfig.MixedPrecision = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public string TrainingPrecision
+    {
+        get => TrainingConfig.Precision;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? "fp16" : value.Trim().ToLowerInvariant();
+            if (TrainingConfig.Precision == next) return;
+            TrainingConfig.Precision = next;
+            OnPropertyChanged();
+        }
+    }
+    public bool TrainingGradientClipping
+    {
+        get => TrainingConfig.EnableGradientClipping;
+        set
+        {
+            if (TrainingConfig.EnableGradientClipping == value) return;
+            TrainingConfig.EnableGradientClipping = value;
+            OnPropertyChanged();
+        }
+    }
+    public double TrainingGradientClipNorm
+    {
+        get => TrainingConfig.GradientClipNorm;
+        set
+        {
+            if (Math.Abs(TrainingConfig.GradientClipNorm - value) < 1e-12) return;
+            TrainingConfig.GradientClipNorm = Math.Max(0.0, value);
+            OnPropertyChanged();
+        }
+    }
+    public int TrainingCheckpointEvery
+    {
+        get => TrainingConfig.CheckpointEvery;
+        set
+        {
+            if (TrainingConfig.CheckpointEvery == value) return;
+            TrainingConfig.CheckpointEvery = Math.Max(0, value);
+            OnPropertyChanged();
+        }
+    }
+    public bool TrainingEnablePostQuantization
+    {
+        get => TrainingConfig.EnablePostTrainingQuantization;
+        set
+        {
+            if (TrainingConfig.EnablePostTrainingQuantization == value) return;
+            TrainingConfig.EnablePostTrainingQuantization = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public string TrainingQuantizationProfile
+    {
+        get => TrainingConfig.QuantizationProfile;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? "dynamic-int8" : value.Trim().ToLowerInvariant();
+            if (TrainingConfig.QuantizationProfile == next) return;
+            TrainingConfig.QuantizationProfile = next;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public int TrainingQuantizationCalibrationSamples
+    {
+        get => TrainingConfig.QuantizationCalibrationSamples;
+        set
+        {
+            var next = Math.Max(1, value);
+            if (TrainingConfig.QuantizationCalibrationSamples == next) return;
+            TrainingConfig.QuantizationCalibrationSamples = next;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public bool TrainingEnableQatPath
+    {
+        get => TrainingConfig.EnableQatPath;
+        set
+        {
+            if (TrainingConfig.EnableQatPath == value) return;
+            TrainingConfig.EnableQatPath = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public int TrainingQatFineTuneSteps
+    {
+        get => TrainingConfig.QatFineTuneSteps;
+        set
+        {
+            var next = Math.Max(1, value);
+            if (TrainingConfig.QatFineTuneSteps == next) return;
+            TrainingConfig.QatFineTuneSteps = next;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public bool TrainingDedup
+    {
+        get => TrainingConfig.EnableDeduplication;
+        set
+        {
+            if (TrainingConfig.EnableDeduplication == value) return;
+            TrainingConfig.EnableDeduplication = value;
+            OnPropertyChanged();
+        }
+    }
+    public bool TrainingDedupLines
+    {
+        get => TrainingConfig.RemoveDuplicateLines;
+        set
+        {
+            if (TrainingConfig.RemoveDuplicateLines == value) return;
+            TrainingConfig.RemoveDuplicateLines = value;
+            OnPropertyChanged();
+        }
+    }
+    public bool TrainingDedupParagraphs
+    {
+        get => TrainingConfig.RemoveDuplicateParagraphs;
+        set
+        {
+            if (TrainingConfig.RemoveDuplicateParagraphs == value) return;
+            TrainingConfig.RemoveDuplicateParagraphs = value;
+            OnPropertyChanged();
+        }
+    }
+    public bool TrainingNormalizeUnicode
+    {
+        get => TrainingConfig.NormalizeUnicode;
+        set
+        {
+            if (TrainingConfig.NormalizeUnicode == value) return;
+            TrainingConfig.NormalizeUnicode = value;
+            OnPropertyChanged();
+        }
+    }
+    public bool TrainingCollapseWhitespace
+    {
+        get => TrainingConfig.CollapseWhitespace;
+        set
+        {
+            if (TrainingConfig.CollapseWhitespace == value) return;
+            TrainingConfig.CollapseWhitespace = value;
+            OnPropertyChanged();
+        }
+    }
+    public bool TrainingCurriculumLearning
+    {
+        get => TrainingConfig.CurriculumLearning;
+        set
+        {
+            if (TrainingConfig.CurriculumLearning == value) return;
+            TrainingConfig.CurriculumLearning = value;
+            OnPropertyChanged();
+        }
+    }
+    public double TrainingCurriculumWarmupRatio
+    {
+        get => TrainingConfig.CurriculumWarmupRatio;
+        set
+        {
+            if (Math.Abs(TrainingConfig.CurriculumWarmupRatio - value) < 1e-12) return;
+            TrainingConfig.CurriculumWarmupRatio = Math.Clamp(value, 0.05, 0.9);
+            OnPropertyChanged();
+        }
+    }
+    public bool TrainingDistributed
+    {
+        get => TrainingConfig.DistributedTraining;
+        set
+        {
+            if (TrainingConfig.DistributedTraining == value) return;
+            TrainingConfig.DistributedTraining = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public string TrainingClusterProfileName
+    {
+        get => TrainingConfig.ClusterProfileName;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? "single-node" : value.Trim();
+            if (TrainingConfig.ClusterProfileName == next) return;
+            TrainingConfig.ClusterProfileName = next;
+            var profile = ClusterProfileManager.Resolve(next);
+            TrainingConfig.ClusterOrchestrator = profile.Orchestrator;
+            TrainingConfig.ClusterWorldSize = Math.Max(1, profile.WorldSize);
+            TrainingConfig.ClusterMaxRetries = Math.Max(0, profile.MaxRetries);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+            OnPropertyChanged(nameof(TrainingWizardDetailedText));
+        }
+    }
+    public bool TrainingOrchestratePipelineStages
+    {
+        get => TrainingConfig.OrchestratePipelineStages;
+        set
+        {
+            if (TrainingConfig.OrchestratePipelineStages == value) return;
+            TrainingConfig.OrchestratePipelineStages = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public bool TrainingPipelineRunDataStage
+    {
+        get => TrainingConfig.PipelineRunDataStage;
+        set
+        {
+            if (TrainingConfig.PipelineRunDataStage == value) return;
+            TrainingConfig.PipelineRunDataStage = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public bool TrainingPipelineRunPreprocessStage
+    {
+        get => TrainingConfig.PipelineRunPreprocessStage;
+        set
+        {
+            if (TrainingConfig.PipelineRunPreprocessStage == value) return;
+            TrainingConfig.PipelineRunPreprocessStage = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public bool TrainingPipelineRunTrainStage
+    {
+        get => TrainingConfig.PipelineRunTrainStage;
+        set
+        {
+            if (TrainingConfig.PipelineRunTrainStage == value) return;
+            TrainingConfig.PipelineRunTrainStage = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public bool TrainingPipelineRunEvalStage
+    {
+        get => TrainingConfig.PipelineRunEvalStage;
+        set
+        {
+            if (TrainingConfig.PipelineRunEvalStage == value) return;
+            TrainingConfig.PipelineRunEvalStage = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public string TrainingMultiGpuStrategy
+    {
+        get => TrainingConfig.MultiGpuStrategy;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? "none" : value.Trim().ToLowerInvariant();
+            if (TrainingConfig.MultiGpuStrategy == next) return;
+            TrainingConfig.MultiGpuStrategy = next;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public int TrainingGradientAccumulationSteps
+    {
+        get => TrainingConfig.GradientAccumulationSteps;
+        set
+        {
+            var next = Math.Max(1, value);
+            if (TrainingConfig.GradientAccumulationSteps == next) return;
+            TrainingConfig.GradientAccumulationSteps = next;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public bool TrainingAutoDeviceMap
+    {
+        get => TrainingConfig.AutoDeviceMap;
+        set
+        {
+            if (TrainingConfig.AutoDeviceMap == value) return;
+            TrainingConfig.AutoDeviceMap = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public string TrainingAlignmentMode
+    {
+        get => TrainingConfig.AlignmentMode;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? "none" : value.Trim().ToLowerInvariant();
+            if (TrainingConfig.AlignmentMode == next) return;
+            TrainingConfig.AlignmentMode = next;
+            OnPropertyChanged();
+        }
+    }
+    public bool TrainingFineTuningOrchestration
+    {
+        get => TrainingConfig.FineTuningOrchestration;
+        set
+        {
+            if (TrainingConfig.FineTuningOrchestration == value) return;
+            TrainingConfig.FineTuningOrchestration = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public bool TrainingFineTuneStageSft
+    {
+        get => TrainingConfig.FineTuneStageSft;
+        set
+        {
+            if (TrainingConfig.FineTuneStageSft == value) return;
+            TrainingConfig.FineTuneStageSft = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public bool TrainingFineTuneStageDpo
+    {
+        get => TrainingConfig.FineTuneStageDpo;
+        set
+        {
+            if (TrainingConfig.FineTuneStageDpo == value) return;
+            TrainingConfig.FineTuneStageDpo = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public bool TrainingFineTuneStageRlhf
+    {
+        get => TrainingConfig.FineTuneStageRlhf;
+        set
+        {
+            if (TrainingConfig.FineTuneStageRlhf == value) return;
+            TrainingConfig.FineTuneStageRlhf = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public string TrainingRlhfFeedbackSource
+    {
+        get => TrainingConfig.RlhfFeedbackSource;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? "inline" : value.Trim().ToLowerInvariant();
+            if (TrainingConfig.RlhfFeedbackSource == next) return;
+            TrainingConfig.RlhfFeedbackSource = next;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public string TrainingRlhfFeedbackPath
+    {
+        get => TrainingConfig.RlhfFeedbackPath;
+        set
+        {
+            if (TrainingConfig.RlhfFeedbackPath == value) return;
+            TrainingConfig.RlhfFeedbackPath = value ?? string.Empty;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public string RlhfDraftPrompt
+    {
+        get => _rlhfDraftPrompt;
+        set => SetProperty(ref _rlhfDraftPrompt, value);
+    }
+    public string RlhfDraftChosen
+    {
+        get => _rlhfDraftChosen;
+        set => SetProperty(ref _rlhfDraftChosen, value);
+    }
+    public string RlhfDraftRejected
+    {
+        get => _rlhfDraftRejected;
+        set => SetProperty(ref _rlhfDraftRejected, value);
+    }
+    public string RlhfCollectedCountText => $"Collected RLHF records: {RlhfCollectedFeedback.Count}";
+    public bool TrainingRewardModelingEnabled
+    {
+        get => TrainingConfig.RewardModelingEnabled;
+        set
+        {
+            if (TrainingConfig.RewardModelingEnabled == value) return;
+            TrainingConfig.RewardModelingEnabled = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public string TrainingSafetyPolicyMode
+    {
+        get => TrainingConfig.SafetyPolicyMode;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? "standard" : value.Trim().ToLowerInvariant();
+            if (TrainingConfig.SafetyPolicyMode == next) return;
+            TrainingConfig.SafetyPolicyMode = next;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public bool TrainingExportOnnx
+    {
+        get => TrainingConfig.ExportOnnx;
+        set
+        {
+            if (TrainingConfig.ExportOnnx == value) return;
+            TrainingConfig.ExportOnnx = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public bool TrainingExportGguf
+    {
+        get => TrainingConfig.ExportGguf;
+        set
+        {
+            if (TrainingConfig.ExportGguf == value) return;
+            TrainingConfig.ExportGguf = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
+    public string TrainingEvalSuite
+    {
+        get => TrainingConfig.EvalSuite;
+        set
+        {
+            var next = string.IsNullOrWhiteSpace(value) ? "basic" : value.Trim().ToLowerInvariant();
+            if (TrainingConfig.EvalSuite == next) return;
+            TrainingConfig.EvalSuite = next;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
+        }
+    }
     public string TokenizerExplanation => TokenizerRegistry.Explain(SelectedTokenizerKind);
-    public bool ShowBpeOptions => SelectedTokenizerKind is TokenizerKind.SimpleBpe or TokenizerKind.HybridFallback;
+    public bool ShowBpeOptions => SelectedTokenizerKind is TokenizerKind.SimpleBpe or TokenizerKind.ByteLevelBpe or TokenizerKind.Unigram or TokenizerKind.WordPiece or TokenizerKind.HybridFallback;
     public bool ShowWordOptions => SelectedTokenizerKind is TokenizerKind.Word;
     public bool ShowExperimentalOptions => SelectedTokenizerKind is TokenizerKind.HierarchicalExperimental;
     public bool IsDatasetSection => SelectedSection == "Dataset";
@@ -497,6 +1032,9 @@ public sealed class MainWindowViewModel : ObservableObject
     public string GenerationExplanation => GenerationPreviewService.Describe(SamplingConfig);
     public string ChartSummary => BuildChartSummary();
     public string TokenizerRecommendationText => BuildTokenizerRecommendationText();
+    public string TokenizerPresetBadgeText => BuildTokenizerPresetBadgeText();
+    public string TokenizerIdealValuesText => BuildTokenizerIdealValuesText();
+    public string RoadmapChecklistText => BuildRoadmapChecklistText();
     public string HardwareCpuText { get; private set; } = "Detecting CPU...";
     public string HardwareRamText { get; private set; } = "Detecting RAM...";
     public string HardwareOsText { get; private set; } = "Detecting OS...";
@@ -511,6 +1049,11 @@ public sealed class MainWindowViewModel : ObservableObject
     public string TrainingStepGuide => IsEnglish
         ? "Recommended order: 1) Verify readiness is complete  2) Start Backend Training  3) Monitor logs/loss  4) Cancel only if needed  5) Open Output Folder for checkpoints."
         : "Ordine consigliato: 1) Verifica readiness completa  2) Start Backend Training  3) Monitora log/loss  4) Cancel solo se necessario  5) Open Output Folder per checkpoint.";
+    public string TrainingWizardMiniText => IsEnglish
+        ? "Training Wizard: 1) Select training profile  2) Select eval pack  3) Check preflight status  4) Start training."
+        : "Training Wizard: 1) Seleziona profilo training  2) Seleziona eval pack  3) Controlla preflight  4) Avvia training.";
+    public string TrainingWizardDetailedText => BuildTrainingWizardDetailedText();
+    public string TrainingPreflightText => BuildTrainingPreflightText();
     public string DatasetHelpText => IsEnglish
         ? "You can import a single file or a folder of files (.txt/.md/.csv), or paste text manually."
         : "Puoi importare singolo file o cartella di file (.txt/.md/.csv), oppure incollare testo manualmente.";
@@ -531,6 +1074,7 @@ public sealed class MainWindowViewModel : ObservableObject
             if (TrainingConfig.ForceCpu == value) return;
             TrainingConfig.ForceCpu = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(TrainingPreflightText));
         }
     }
     public string LastStepText => TrainingLogs.Count == 0 ? "-" : TrainingLogs.Last().Step.ToString("N0");
@@ -552,6 +1096,13 @@ public sealed class MainWindowViewModel : ObservableObject
     public string TrainingQualityColor => ComputeTrainingQualityScore().color;
     public string TrainingQualityBandText => ComputeTrainingQualityScore().band;
     public string TrainingQualityHintText => ComputeTrainingQualityScore().hint;
+    public string EvalSuiteResultText => _lastEvalSummary is null
+        ? "-"
+        : $"{_lastEvalSummary.EvalSuite} ({_lastEvalSummary.NumBenchmarks} tasks)";
+    public string EvalAverageScoreText => _lastEvalSummary is null ? "-" : _lastEvalSummary.AverageScore.ToString("F2");
+    public string EvalBandText => _lastEvalSummary is null ? "-" : _lastEvalSummary.Band;
+    public string EvalGateText => _lastEvalSummary is null ? "-" : (_lastEvalSummary.ReleaseGatePassed ? "PASS" : "FAIL");
+    public string EvalGateThresholdText => _lastEvalSummary is null ? "-" : _lastEvalSummary.ReleaseGateThreshold.ToString("F1");
     public bool IsBackendBusy => _isBackendBootstrapping;
     public bool IsBackendConfigured => PythonBackendBridge.IsPythonAvailable(PythonPath);
     public bool ShowSetupBackendAction => !IsBackendConfigured;
@@ -582,10 +1133,11 @@ public sealed class MainWindowViewModel : ObservableObject
     public string DarkLabel => IsEnglish ? "Dark" : "Scuro";
     public string SectionWorkflowText => IsEnglish ? "Workflow" : "Workflow";
     public string HeaderSubtitleText => IsEnglish
-        ? "Tokenizer, training loop, generation, and local mini-LLM lab"
-        : "Tokenizer, training loop, generation e laboratorio per mini-LLM personali";
+        ? "Tokenizer, training loop, generation, and local LLM lab"
+        : "Tokenizer, training loop, generation e laboratorio per LLM personali";
     public string ButtonLoadProject => IsEnglish ? "Load Project" : "Carica Progetto";
     public string ButtonSaveProject => IsEnglish ? "Save Project" : "Salva Progetto";
+    public string ButtonGuide => IsEnglish ? "Guide" : "Guida";
     public string ButtonTrainTokenizer => IsEnglish ? "Train Tokenizer" : "Allena Tokenizer";
     public string WelcomeTitle => IsEnglish ? "Welcome to LLM Forge Studio" : "Benvenuto in LLM Forge Studio";
     public string GuideTitleText => IsEnglish ? "Guide - Page by Page" : "Guida - Pagina per Pagina";
@@ -645,6 +1197,11 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         var project = BuildProjectPayload();
         await ProjectStore.SaveAsync(project, path);
+        await _uiDebugLogger.WriteAsync(
+            ResolveRunDirectoryForDebug(),
+            "project.save",
+            "Project saved from UI.",
+            new { path, snapshot = project });
         Log = $"Project saved: {path}";
     }
 
@@ -671,6 +1228,11 @@ public sealed class MainWindowViewModel : ObservableObject
         RefreshAll();
         OnPropertyChanged(nameof(IsTrainingReady));
         OnPropertyChanged(nameof(TrainingReadinessText));
+        await _uiDebugLogger.WriteAsync(
+            ResolveRunDirectoryForDebug(),
+            "project.load",
+            "Project loaded from UI.",
+            new { path, snapshot = BuildProjectPayload() });
         Log = $"Project loaded: {path}";
     }
 
@@ -699,13 +1261,15 @@ public sealed class MainWindowViewModel : ObservableObject
         var files = Directory.GetFiles(folderPath, "*.*", SearchOption.TopDirectoryOnly)
             .Where(p => p.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
                      || p.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
-                     || p.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                     || p.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
+                     || p.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase)
+                     || p.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
             .OrderBy(p => p)
             .ToList();
 
         if (files.Count == 0)
         {
-            Log = "Nessun file supportato trovato nella cartella (.txt/.md/.csv).";
+            Log = "Nessun file supportato trovato nella cartella (.txt/.md/.csv/.jsonl/.json).";
             return;
         }
 
@@ -720,11 +1284,42 @@ public sealed class MainWindowViewModel : ObservableObject
         DatasetText = string.Join("\n\n", blocks);
         ResetPreparationState();
         _wizardDatasetImported = true;
-        Log = $"Dataset cartella importato: {files.Count} file uniti.";
+
+        var rlhfCandidate = ResolveRlhfFeedbackPathCandidate(files);
+        if (!string.IsNullOrWhiteSpace(rlhfCandidate))
+        {
+            TrainingConfig.RlhfFeedbackPath = rlhfCandidate;
+            OnPropertyChanged(nameof(TrainingRlhfFeedbackPath));
+            Log = $"Dataset cartella importato: {files.Count} file uniti.\nAuto-detect RLHF feedback path: {rlhfCandidate}";
+        }
+        else
+        {
+            Log = $"Dataset cartella importato: {files.Count} file uniti.";
+        }
+
         OnPropertyChanged(nameof(IsTrainingReady));
         OnPropertyChanged(nameof(TrainingReadinessText));
         OnPropertyChanged(nameof(WizardText));
         OnPropertyChanged(nameof(WizardProgressText));
+    }
+
+    private static string ResolveRlhfFeedbackPathCandidate(IReadOnlyList<string> files)
+    {
+        var jsonlFiles = files
+            .Where(p => p.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(p => p)
+            .ToList();
+        if (jsonlFiles.Count == 0) return string.Empty;
+        if (jsonlFiles.Count == 1) return jsonlFiles[0];
+
+        var heuristic = jsonlFiles.FirstOrDefault(p =>
+        {
+            var name = Path.GetFileName(p).ToLowerInvariant();
+            return name.Contains("rlhf")
+                || name.Contains("feedback")
+                || name.Contains("human");
+        });
+        return heuristic ?? string.Empty;
     }
 
     private void RefreshAll()
@@ -833,17 +1428,40 @@ public sealed class MainWindowViewModel : ObservableObject
         if (IsTraining) return;
         if (!IsTrainingReady)
         {
+            await _uiDebugLogger.WriteAsync(
+                ResolveRunDirectoryForDebug(),
+                "training.blocked.missing_steps",
+                "Training blocked because required preparation steps are missing.",
+                new { missing = GetTrainingMissingSteps(), snapshot = BuildProjectPayload() });
             Log = $"Training blocked. Missing steps: {string.Join(", ", GetTrainingMissingSteps())}.";
             return;
         }
         if (!PythonBackendBridge.IsPythonAvailable(PythonPath))
         {
+            await _uiDebugLogger.WriteAsync(
+                ResolveRunDirectoryForDebug(),
+                "training.blocked.python",
+                "Training blocked because configured Python executable is unavailable.",
+                new { pythonPath = PythonPath, snapshot = BuildProjectPayload() });
             Log = $"Python non trovato: {PythonPath}";
+            return;
+        }
+        var preflightBlock = GetBlockingPreflightIssue();
+        if (!string.IsNullOrWhiteSpace(preflightBlock))
+        {
+            TrainingStatusText = "Training blocked by preflight checks.";
+            await _uiDebugLogger.WriteAsync(
+                ResolveRunDirectoryForDebug(),
+                "training.blocked.preflight",
+                "Training blocked by preflight checks.",
+                new { preflightBlock, snapshot = BuildProjectPayload() });
+            Log = preflightBlock;
             return;
         }
 
         var projectRoot = ResolveProjectRoot();
-        var scriptPath = Path.Combine(projectRoot, "backends", "python", "train_stub.py");
+        var scriptPath = Path.Combine(projectRoot, "backends", "python", "cluster_runner.py");
+        await PrepareRlhfFeedbackForRunAsync();
         var datasetForBackend = await WriteConsolidatedDatasetForBackendAsync();
         var spec = new BackendJobSpec
         {
@@ -853,15 +1471,39 @@ public sealed class MainWindowViewModel : ObservableObject
             Tokenizer = TokenizerConfig,
             Model = ModelConfig,
             Training = TrainingConfig,
-            Sampling = SamplingConfig
+            Sampling = SamplingConfig,
+            ClusterProfileName = TrainingConfig.ClusterProfileName
         };
 
         var specPath = await PythonBackendBridge.WriteJobSpecAsync(spec, RunDirectory);
+        var clusterDescriptor = ClusterJobDescriptor.FromSpec(spec);
+        clusterDescriptor.JobSpecPath = specPath;
+        var clusterDescriptorPath = await ClusterJobDescriptor.WriteAsync(RunDirectory, clusterDescriptor);
+        spec.ClusterJobDescriptorPath = clusterDescriptorPath;
+        specPath = await PythonBackendBridge.WriteJobSpecAsync(spec, RunDirectory);
         var startInfo = PythonBackendBridge.CreateStartInfo(PythonPath, scriptPath, $"--job \"{specPath}\"");
+        await _uiDebugLogger.WriteAsync(
+            ResolveRunDirectoryForDebug(),
+            "training.start.requested",
+            "Training process requested from UI.",
+            new
+            {
+                runDirectory = RunDirectory,
+                projectRoot,
+                scriptPath,
+                specPath,
+                clusterDescriptorPath,
+                snapshot = BuildProjectPayload()
+            });
 
         _trainingProcess = Process.Start(startInfo);
         if (_trainingProcess is null)
         {
+            await _uiDebugLogger.WriteAsync(
+                ResolveRunDirectoryForDebug(),
+                "training.start.failed",
+                "Backend process failed to start.",
+                new { startInfo.FileName, startInfo.Arguments, runDirectory = RunDirectory });
             Log = "Errore avvio processo training.";
             TrainingStatusText = "Training failed: backend process could not start.";
             return;
@@ -876,6 +1518,11 @@ public sealed class MainWindowViewModel : ObservableObject
         TrainingLogs.Clear();
         TrainingStatusText = "Training started. Waiting for backend logs...";
         Log = $"Training started. Output directory: {RunDirectory}";
+        await _uiDebugLogger.WriteAsync(
+            ResolveRunDirectoryForDebug(),
+            "training.started",
+            "Training process started.",
+            new { processId = _trainingProcess.Id, runDirectory = RunDirectory });
         RaiseTrainingDashboardChanged();
         OnPropertyChanged(nameof(WizardText));
         OnPropertyChanged(nameof(WizardProgressText));
@@ -916,14 +1563,28 @@ public sealed class MainWindowViewModel : ObservableObject
 
                 if (exitCode == 0)
                 {
+                    _ = RunArtifactRegistry.UpdateAsync(RunDirectory);
+                    _ = RefreshEvalSummaryAsync();
                     TrainingStatusText = $"Training completed successfully. Steps logged: {TrainingLogs.Count}.";
                     Log = $"Training completed. Output: {RunDirectory}";
+                    _ = _uiDebugLogger.WriteAsync(
+                        ResolveRunDirectoryForDebug(),
+                        "training.completed.success",
+                        "Training completed successfully.",
+                        new { exitCode, runDirectory = RunDirectory, modelPath, manifestPath, lastStep, hasArtifacts });
                     AutoSelectCheckpointIfAvailable();
                 }
                 else if (likelyCompleted)
                 {
+                    _ = RunArtifactRegistry.UpdateAsync(RunDirectory);
+                    _ = RefreshEvalSummaryAsync();
                     TrainingStatusText = $"Training completed (with non-zero exit code {exitCode}). Artifacts are valid.";
                     Log = $"Training completed with warning (exit code {exitCode}) but checkpoint artifacts were produced.\nOutput: {RunDirectory}";
+                    _ = _uiDebugLogger.WriteAsync(
+                        ResolveRunDirectoryForDebug(),
+                        "training.completed.warning",
+                        "Training exited with non-zero code but artifacts look valid.",
+                        new { exitCode, runDirectory = RunDirectory, modelPath, manifestPath, lastStep, hasArtifacts });
                     AutoSelectCheckpointIfAvailable();
                 }
                 else
@@ -932,6 +1593,11 @@ public sealed class MainWindowViewModel : ObservableObject
                     var compactErr = string.IsNullOrWhiteSpace(err) ? "(no backend error output)" : err.Trim();
                     TrainingStatusText = $"Training failed (exit code {exitCode}).";
                     Log = $"Training failed (exit code {exitCode}).\nBackend output:\n{compactErr}";
+                    _ = _uiDebugLogger.WriteAsync(
+                        ResolveRunDirectoryForDebug(),
+                        "training.completed.failed",
+                        "Training failed.",
+                        new { exitCode, runDirectory = RunDirectory, backendError = compactErr, modelPath, manifestPath, lastStep, hasArtifacts });
                 }
             });
         }
@@ -942,6 +1608,11 @@ public sealed class MainWindowViewModel : ObservableObject
                 TrainingStatusText = "Training monitor failed.";
                 Log = $"Training monitor error: {ex.Message}";
             });
+            await _uiDebugLogger.WriteAsync(
+                ResolveRunDirectoryForDebug(),
+                "training.monitor.error",
+                "Training monitor threw an exception.",
+                new { exception = ex.ToString(), runDirectory = RunDirectory });
         }
         finally
         {
@@ -950,6 +1621,11 @@ public sealed class MainWindowViewModel : ObservableObject
                 IsTraining = false;
                 RaiseTrainingDashboardChanged();
             });
+            await _uiDebugLogger.WriteAsync(
+                ResolveRunDirectoryForDebug(),
+                "training.monitor.closed",
+                "Training monitor closed.",
+                new { runDirectory = RunDirectory, logEntries = TrainingLogs.Count });
         }
     }
 
@@ -978,10 +1654,50 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private async Task<string> WriteConsolidatedDatasetForBackendAsync()
     {
-        Directory.CreateDirectory(RunDirectory);
-        var consolidatedPath = Path.Combine(RunDirectory, "dataset_consolidated.txt");
-        await File.WriteAllTextAsync(consolidatedPath, DatasetText ?? string.Empty);
-        return consolidatedPath;
+        var raw = DatasetText ?? string.Empty;
+        return await FineTuningStageOrchestrator.PrepareAsync(raw, TrainingConfig, RunDirectory);
+    }
+
+    private async Task PrepareRlhfFeedbackForRunAsync()
+    {
+        if (!TrainingConfig.FineTuneStageRlhf) return;
+        if (!string.Equals(TrainingConfig.RlhfFeedbackSource, "inline", StringComparison.OrdinalIgnoreCase)) return;
+        if (RlhfCollectedFeedback.Count == 0) return;
+
+        var path = Path.Combine(RunDirectory, "rlhf_feedback_collected.jsonl");
+        await RlhfFeedbackCollector.SaveJsonlAsync(RlhfCollectedFeedback, path);
+        TrainingConfig.RlhfFeedbackPath = path;
+        OnPropertyChanged(nameof(TrainingRlhfFeedbackPath));
+    }
+
+    private void AddRlhfFeedback()
+    {
+        var prompt = (RlhfDraftPrompt ?? string.Empty).Trim();
+        var chosen = (RlhfDraftChosen ?? string.Empty).Trim();
+        var rejected = (RlhfDraftRejected ?? string.Empty).Trim();
+        if (prompt.Length == 0 || chosen.Length == 0)
+        {
+            Log = "RLHF feedback requires prompt and chosen response.";
+            return;
+        }
+
+        RlhfCollectedFeedback.Add(new RlhfFeedbackRecord
+        {
+            Prompt = prompt,
+            Chosen = chosen,
+            Rejected = rejected
+        });
+
+        RlhfDraftPrompt = string.Empty;
+        RlhfDraftChosen = string.Empty;
+        RlhfDraftRejected = string.Empty;
+        OnPropertyChanged(nameof(RlhfCollectedCountText));
+    }
+
+    private void ClearRlhfFeedback()
+    {
+        RlhfCollectedFeedback.Clear();
+        OnPropertyChanged(nameof(RlhfCollectedCountText));
     }
 
     private async Task SetupBackendAsync()
@@ -1014,14 +1730,26 @@ public sealed class MainWindowViewModel : ObservableObject
         foreach (var line in lines)
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
-            using var doc = JsonDocument.Parse(line);
-            var root = doc.RootElement;
-            parsed.Add(new TrainingLogEntry(
-                root.GetProperty("step").GetInt32(),
-                root.GetProperty("train_loss").GetDouble(),
-                root.GetProperty("val_loss").GetDouble(),
-                root.GetProperty("tokens_per_second").GetDouble(),
-                root.TryGetProperty("message", out var message) ? message.GetString() ?? string.Empty : string.Empty));
+
+            // Defensive parse: runtime/OS can occasionally inject non-JSON bytes while file is being written.
+            var cleanLine = line.Trim().TrimStart('\0', '\uFEFF');
+            if (cleanLine.Length == 0) continue;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(cleanLine);
+                var root = doc.RootElement;
+                parsed.Add(new TrainingLogEntry(
+                    root.GetProperty("step").GetInt32(),
+                    root.GetProperty("train_loss").GetDouble(),
+                    root.GetProperty("val_loss").GetDouble(),
+                    root.GetProperty("tokens_per_second").GetDouble(),
+                    root.TryGetProperty("message", out var message) ? message.GetString() ?? string.Empty : string.Empty));
+            }
+            catch (JsonException)
+            {
+                // Skip malformed partial line and continue polling.
+            }
         }
 
         await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1045,6 +1773,11 @@ public sealed class MainWindowViewModel : ObservableObject
         Log = "Training cancelled by user.";
         TrainingStatusText = "Training cancelled.";
         IsTraining = false;
+        _ = _uiDebugLogger.WriteAsync(
+            ResolveRunDirectoryForDebug(),
+            "training.cancelled",
+            "Training cancelled by user.",
+            new { runDirectory = RunDirectory, processId = _trainingProcess.Id });
         RaiseTrainingDashboardChanged();
     }
 
@@ -1125,6 +1858,21 @@ public sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(TrainingQualityColor));
         OnPropertyChanged(nameof(TrainingQualityBandText));
         OnPropertyChanged(nameof(TrainingQualityHintText));
+        OnPropertyChanged(nameof(EvalSuiteResultText));
+        OnPropertyChanged(nameof(EvalAverageScoreText));
+        OnPropertyChanged(nameof(EvalBandText));
+        OnPropertyChanged(nameof(EvalGateText));
+        OnPropertyChanged(nameof(EvalGateThresholdText));
+    }
+
+    private async Task RefreshEvalSummaryAsync()
+    {
+        var snapshot = await EvalSummaryReader.TryReadAsync(RunDirectory);
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _lastEvalSummary = snapshot;
+            RaiseTrainingDashboardChanged();
+        });
     }
 
     private static async Task RunProcessAsync(string fileName, string arguments, string workingDirectory)
@@ -1469,6 +2217,7 @@ public sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(SectionWorkflowText));
         OnPropertyChanged(nameof(ButtonLoadProject));
         OnPropertyChanged(nameof(ButtonSaveProject));
+        OnPropertyChanged(nameof(ButtonGuide));
         OnPropertyChanged(nameof(ButtonTrainTokenizer));
         OnPropertyChanged(nameof(WelcomeTitle));
         OnPropertyChanged(nameof(HeaderSubtitleText));
@@ -1489,6 +2238,8 @@ public sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(HardwareAutoDetectText));
         OnPropertyChanged(nameof(TokenizationStepGuide));
         OnPropertyChanged(nameof(TrainingStepGuide));
+        OnPropertyChanged(nameof(TrainingWizardMiniText));
+        OnPropertyChanged(nameof(TrainingPreflightText));
         OnPropertyChanged(nameof(DatasetHelpText));
         OnPropertyChanged(nameof(RunDirectoryHelpText));
     }
@@ -1512,6 +2263,11 @@ public sealed class MainWindowViewModel : ObservableObject
         if (IsGenerating) return;
         if (!PythonBackendBridge.IsPythonAvailable(PythonPath))
         {
+            await _uiDebugLogger.WriteAsync(
+                ResolveRunDirectoryForDebug(),
+                "generation.blocked.python",
+                "Generation blocked because configured Python executable is unavailable.",
+                new { pythonPath = PythonPath, checkpointPath = CheckpointPath, prompt = GenerationPrompt });
             Log = $"Python non trovato: {PythonPath}";
             return;
         }
@@ -1522,6 +2278,18 @@ public sealed class MainWindowViewModel : ObservableObject
 
         var projectRoot = ResolveProjectRoot();
         var scriptPath = Path.Combine(projectRoot, "backends", "python", "generate_stub.py");
+        await _uiDebugLogger.WriteAsync(
+            ResolveRunDirectoryForDebug(),
+            "generation.start.requested",
+            "Generation from checkpoint requested from UI.",
+            new
+            {
+                runDirectory = RunDirectory,
+                checkpointPath = CheckpointPath,
+                prompt = GenerationPrompt,
+                sampling = Clone(SamplingConfig),
+                snapshot = BuildProjectPayload()
+            });
         var startInfo = PythonBackendBridge.CreateStartInfo(
             PythonPath,
             scriptPath,
@@ -1532,6 +2300,11 @@ public sealed class MainWindowViewModel : ObservableObject
             using var process = Process.Start(startInfo);
             if (process is null)
             {
+                await _uiDebugLogger.WriteAsync(
+                    ResolveRunDirectoryForDebug(),
+                    "generation.start.failed",
+                    "Generation backend process failed to start.",
+                    new { startInfo.FileName, startInfo.Arguments, runDirectory = RunDirectory });
                 Log = "Errore avvio generation backend.";
                 GenerationStatusText = "Generation failed: backend process could not start.";
                 return;
@@ -1543,6 +2316,11 @@ public sealed class MainWindowViewModel : ObservableObject
 
             if (process.ExitCode != 0)
             {
+                await _uiDebugLogger.WriteAsync(
+                    ResolveRunDirectoryForDebug(),
+                    "generation.completed.failed",
+                    "Generation failed.",
+                    new { exitCode = process.ExitCode, stderr = err, checkpointPath = CheckpointPath, prompt = GenerationPrompt });
                 Log = $"Generation fallita: {err}";
                 GenerationStatusText = "Generation failed.";
                 return;
@@ -1552,6 +2330,16 @@ public sealed class MainWindowViewModel : ObservableObject
             var text = doc.RootElement.GetProperty("text").GetString() ?? string.Empty;
             await StreamGeneratedTextAsync(text);
             GenerationStatusText = $"Done. Generated with max new tokens = {SamplingConfig.MaxNewTokens}.";
+            await _uiDebugLogger.WriteAsync(
+                ResolveRunDirectoryForDebug(),
+                "generation.completed.success",
+                "Generation completed successfully.",
+                new
+                {
+                    checkpointPath = CheckpointPath,
+                    prompt = GenerationPrompt,
+                    outputPreview = text.Length > 500 ? text[..500] : text
+                });
             Log = "Generation completed successfully.";
         }
         finally
@@ -1587,6 +2375,21 @@ public sealed class MainWindowViewModel : ObservableObject
         var tokenCount = _lastTokenization?.TokenCount ?? 0;
         foreach (var w in TokenizerCompatibility.Validate(TokenizerConfig, datasetChars, ModelConfig.BlockSize)) Warnings.Add(w);
         foreach (var w in CompatibilityRules.Validate(ModelConfig, TrainingConfig, tokenCount)) Warnings.Add(w);
+
+        if (TrainingConfig.DistributedTraining)
+        {
+            var worldSizeRaw = Environment.GetEnvironmentVariable("WORLD_SIZE");
+            var hasWorldSize = int.TryParse(worldSizeRaw, out var worldSize) && worldSize > 1;
+            if (!hasWorldSize)
+                Warnings.Add("Distributed mode is enabled but WORLD_SIZE is not set (>1). Run may fallback to single-device behavior.");
+        }
+
+        if (TrainingConfig.EnablePostTrainingQuantization && !TrainingConfig.ForceCpu)
+            Warnings.Add("Post-training quantization currently applies on CPU path. Enable Force CPU if you want quantized artifact generation.");
+
+        if (TrainingConfig.MixedPrecision && TrainingConfig.ForceCpu)
+            Warnings.Add("Mixed precision is enabled with Force CPU. AMP acceleration is typically effective only on CUDA devices.");
+
         if (!Warnings.Any()) Warnings.Add("No major compatibility warnings.");
     }
 
@@ -1611,6 +2414,11 @@ public sealed class MainWindowViewModel : ObservableObject
         var json = JsonSerializer.Serialize(value);
         return JsonSerializer.Deserialize<T>(json)!;
     }
+
+    private string ResolveRunDirectoryForDebug()
+        => string.IsNullOrWhiteSpace(RunDirectory)
+            ? Path.Combine(Environment.CurrentDirectory, "runs", "default")
+            : RunDirectory;
 
     private void ApplyCleaner(TextCleanerConfig config)
     {
@@ -1652,6 +2460,57 @@ public sealed class MainWindowViewModel : ObservableObject
         TrainingConfig.EvalEvery = config.EvalEvery;
         TrainingConfig.TrainSplit = config.TrainSplit;
         TrainingConfig.EnableGradientClipping = config.EnableGradientClipping;
+        TrainingConfig.GradientClipNorm = config.GradientClipNorm;
+        TrainingConfig.Optimizer = config.Optimizer;
+        TrainingConfig.Scheduler = config.Scheduler;
+        TrainingConfig.WarmupSteps = config.WarmupSteps;
+        TrainingConfig.MixedPrecision = config.MixedPrecision;
+        TrainingConfig.Precision = config.Precision;
+        TrainingConfig.CheckpointEvery = config.CheckpointEvery;
+        TrainingConfig.EnablePostTrainingQuantization = config.EnablePostTrainingQuantization;
+        TrainingConfig.QuantizationProfile = config.QuantizationProfile;
+        TrainingConfig.QuantizationCalibrationSamples = config.QuantizationCalibrationSamples;
+        TrainingConfig.EnableQatPath = config.EnableQatPath;
+        TrainingConfig.QatFineTuneSteps = Math.Max(1, config.QatFineTuneSteps);
+        TrainingConfig.EnableDeduplication = config.EnableDeduplication;
+        TrainingConfig.RemoveDuplicateLines = config.RemoveDuplicateLines;
+        TrainingConfig.RemoveDuplicateParagraphs = config.RemoveDuplicateParagraphs;
+        TrainingConfig.NormalizeUnicode = config.NormalizeUnicode;
+        TrainingConfig.CollapseWhitespace = config.CollapseWhitespace;
+        TrainingConfig.CurriculumLearning = config.CurriculumLearning;
+        TrainingConfig.CurriculumWarmupRatio = config.CurriculumWarmupRatio;
+        TrainingConfig.ResumeDatasetFromState = config.ResumeDatasetFromState;
+        TrainingConfig.DeterministicShardShuffle = config.DeterministicShardShuffle;
+        TrainingConfig.DataShuffleSeed = config.DataShuffleSeed;
+        TrainingConfig.ClusterProfileName = config.ClusterProfileName;
+        TrainingConfig.ClusterOrchestrator = config.ClusterOrchestrator;
+        TrainingConfig.ClusterWorldSize = config.ClusterWorldSize;
+        TrainingConfig.ClusterMaxRetries = config.ClusterMaxRetries;
+        TrainingConfig.ClusterHeartbeatSeconds = config.ClusterHeartbeatSeconds;
+        TrainingConfig.OrchestratePipelineStages = config.OrchestratePipelineStages;
+        TrainingConfig.PipelineRunDataStage = config.PipelineRunDataStage;
+        TrainingConfig.PipelineRunPreprocessStage = config.PipelineRunPreprocessStage;
+        TrainingConfig.PipelineRunTrainStage = config.PipelineRunTrainStage;
+        TrainingConfig.PipelineRunEvalStage = config.PipelineRunEvalStage;
+        TrainingConfig.DistributedTraining = config.DistributedTraining;
+        TrainingConfig.MultiGpuStrategy = string.IsNullOrWhiteSpace(config.MultiGpuStrategy) ? "none" : config.MultiGpuStrategy;
+        TrainingConfig.GradientAccumulationSteps = Math.Max(1, config.GradientAccumulationSteps);
+        TrainingConfig.AutoDeviceMap = config.AutoDeviceMap;
+        TrainingConfig.AlignmentMode = config.AlignmentMode;
+        TrainingConfig.FineTuningOrchestration = config.FineTuningOrchestration;
+        TrainingConfig.FineTuneStageSft = config.FineTuneStageSft;
+        TrainingConfig.FineTuneStageDpo = config.FineTuneStageDpo;
+        TrainingConfig.FineTuneStageRlhf = config.FineTuneStageRlhf;
+        TrainingConfig.RlhfFeedbackSource = string.IsNullOrWhiteSpace(config.RlhfFeedbackSource) ? "inline" : config.RlhfFeedbackSource;
+        TrainingConfig.RlhfFeedbackPath = config.RlhfFeedbackPath ?? string.Empty;
+        TrainingConfig.RewardModelingEnabled = config.RewardModelingEnabled;
+        TrainingConfig.SafetyPolicyMode = string.IsNullOrWhiteSpace(config.SafetyPolicyMode) ? "standard" : config.SafetyPolicyMode;
+        TrainingConfig.ExportOnnx = config.ExportOnnx;
+        TrainingConfig.ExportGguf = config.ExportGguf;
+        TrainingConfig.EvalSuite = config.EvalSuite;
+        TrainingConfig.ForceCpu = config.ForceCpu;
+        _selectedTrainingProfile = "Custom";
+        OnPropertyChanged(nameof(SelectedTrainingProfile));
         RaiseModelTrainingBindingsChanged();
     }
 
@@ -1674,97 +2533,18 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void ApplyRecommendedTokenizerSettings(TokenizerKind kind)
     {
-        var approxWords = Math.Max(1, TextCleaner.Analyze(DatasetText).ApproxWordCount);
-
-        switch (kind)
-        {
-            case TokenizerKind.Character:
-                TokenizerConfig.TargetVocabSize = 256;
-                TokenizerConfig.MinFrequency = 1;
-                TokenizerConfig.MaxMerges = 0;
-                TokenizerConfig.KeepPunctuationAsTokens = true;
-                break;
-            case TokenizerKind.Word:
-                TokenizerConfig.TargetVocabSize = Math.Clamp(approxWords / 3, 1_000, 30_000);
-                TokenizerConfig.MinFrequency = 2;
-                TokenizerConfig.MaxMerges = 0;
-                TokenizerConfig.KeepPunctuationAsTokens = true;
-                break;
-            case TokenizerKind.SimpleBpe:
-                TokenizerConfig.TargetVocabSize = Math.Clamp(approxWords / 4, 2_000, 16_000);
-                TokenizerConfig.MinFrequency = 2;
-                TokenizerConfig.MaxMerges = Math.Clamp(TokenizerConfig.TargetVocabSize / 2, 500, 20_000);
-                TokenizerConfig.KeepPunctuationAsTokens = true;
-                break;
-            case TokenizerKind.HybridFallback:
-                TokenizerConfig.TargetVocabSize = Math.Clamp(approxWords / 4, 2_000, 20_000);
-                TokenizerConfig.MinFrequency = 2;
-                TokenizerConfig.MaxMerges = Math.Clamp(TokenizerConfig.TargetVocabSize / 2, 800, 30_000);
-                TokenizerConfig.KeepPunctuationAsTokens = true;
-                TokenizerConfig.UseCharacterFallback = true;
-                break;
-            case TokenizerKind.HierarchicalExperimental:
-                TokenizerConfig.TargetVocabSize = Math.Clamp(approxWords / 5, 2_000, 24_000);
-                TokenizerConfig.MinFrequency = 2;
-                TokenizerConfig.MaxMerges = Math.Clamp(TokenizerConfig.TargetVocabSize / 2, 1_000, 40_000);
-                break;
-        }
+        GuidedDefaultsEngine.ApplyTokenizerPreset(kind, DatasetText, TokenizerConfig);
     }
 
     private void ApplyRecommendedModelAndTrainingSettings(TokenizerKind kind)
     {
-        switch (kind)
-        {
-            case TokenizerKind.Character:
-                ModelConfig.BlockSize = 256;
-                ModelConfig.Layers = 6;
-                ModelConfig.Heads = 6;
-                ModelConfig.EmbeddingSize = 384;
-                TrainingConfig.BatchSize = 32;
-                TrainingConfig.LearningRate = 3e-4;
-                TrainingConfig.EvalEvery = 100;
-                break;
-            case TokenizerKind.Word:
-                ModelConfig.BlockSize = 192;
-                ModelConfig.Layers = 6;
-                ModelConfig.Heads = 8;
-                ModelConfig.EmbeddingSize = 512;
-                TrainingConfig.BatchSize = 24;
-                TrainingConfig.LearningRate = 2.5e-4;
-                TrainingConfig.EvalEvery = 80;
-                break;
-            case TokenizerKind.SimpleBpe:
-                ModelConfig.BlockSize = 192;
-                ModelConfig.Layers = 8;
-                ModelConfig.Heads = 8;
-                ModelConfig.EmbeddingSize = 512;
-                TrainingConfig.BatchSize = 24;
-                TrainingConfig.LearningRate = 2e-4;
-                TrainingConfig.EvalEvery = 80;
-                break;
-            case TokenizerKind.HybridFallback:
-                ModelConfig.BlockSize = 224;
-                ModelConfig.Layers = 8;
-                ModelConfig.Heads = 8;
-                ModelConfig.EmbeddingSize = 512;
-                TrainingConfig.BatchSize = 20;
-                TrainingConfig.LearningRate = 2e-4;
-                TrainingConfig.EvalEvery = 80;
-                break;
-            case TokenizerKind.HierarchicalExperimental:
-                ModelConfig.BlockSize = 160;
-                ModelConfig.Layers = 6;
-                ModelConfig.Heads = 6;
-                ModelConfig.EmbeddingSize = 384;
-                TrainingConfig.BatchSize = 16;
-                TrainingConfig.LearningRate = 2e-4;
-                TrainingConfig.EvalEvery = 60;
-                break;
-        }
-
-        // Keep a sane lower bound for training duration while preserving user override of MaxSteps.
-        TrainingConfig.MaxSteps = Math.Max(TrainingConfig.MaxSteps, 200);
+        GuidedDefaultsEngine.ApplyModelTrainingPresetForTokenizer(kind, ModelConfig, TrainingConfig);
         RaiseModelTrainingBindingsChanged();
+    }
+
+    private void ApplyTrainingProfile(string profile)
+    {
+        GuidedDefaultsEngine.ApplyTrainingProfile(profile, TrainingConfig);
     }
 
     private void RaiseModelTrainingBindingsChanged()
@@ -1779,6 +2559,50 @@ public sealed class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(TrainingLearningRate));
         OnPropertyChanged(nameof(TrainingEvalEvery));
         OnPropertyChanged(nameof(TrainingForceCpu));
+        OnPropertyChanged(nameof(TrainingOptimizer));
+        OnPropertyChanged(nameof(TrainingScheduler));
+        OnPropertyChanged(nameof(TrainingWarmupSteps));
+        OnPropertyChanged(nameof(TrainingMixedPrecision));
+        OnPropertyChanged(nameof(TrainingPrecision));
+        OnPropertyChanged(nameof(TrainingGradientClipping));
+        OnPropertyChanged(nameof(TrainingGradientClipNorm));
+        OnPropertyChanged(nameof(TrainingCheckpointEvery));
+        OnPropertyChanged(nameof(TrainingEnablePostQuantization));
+        OnPropertyChanged(nameof(TrainingQuantizationProfile));
+        OnPropertyChanged(nameof(TrainingQuantizationCalibrationSamples));
+        OnPropertyChanged(nameof(TrainingEnableQatPath));
+        OnPropertyChanged(nameof(TrainingQatFineTuneSteps));
+        OnPropertyChanged(nameof(TrainingDedup));
+        OnPropertyChanged(nameof(TrainingDedupLines));
+        OnPropertyChanged(nameof(TrainingDedupParagraphs));
+        OnPropertyChanged(nameof(TrainingNormalizeUnicode));
+        OnPropertyChanged(nameof(TrainingCollapseWhitespace));
+        OnPropertyChanged(nameof(TrainingCurriculumLearning));
+        OnPropertyChanged(nameof(TrainingCurriculumWarmupRatio));
+        OnPropertyChanged(nameof(TrainingOrchestratePipelineStages));
+        OnPropertyChanged(nameof(TrainingPipelineRunDataStage));
+        OnPropertyChanged(nameof(TrainingPipelineRunPreprocessStage));
+        OnPropertyChanged(nameof(TrainingPipelineRunTrainStage));
+        OnPropertyChanged(nameof(TrainingPipelineRunEvalStage));
+        OnPropertyChanged(nameof(TrainingClusterProfileName));
+        OnPropertyChanged(nameof(TrainingDistributed));
+        OnPropertyChanged(nameof(TrainingMultiGpuStrategy));
+        OnPropertyChanged(nameof(TrainingGradientAccumulationSteps));
+        OnPropertyChanged(nameof(TrainingAutoDeviceMap));
+        OnPropertyChanged(nameof(TrainingAlignmentMode));
+        OnPropertyChanged(nameof(TrainingFineTuningOrchestration));
+        OnPropertyChanged(nameof(TrainingFineTuneStageSft));
+        OnPropertyChanged(nameof(TrainingFineTuneStageDpo));
+        OnPropertyChanged(nameof(TrainingFineTuneStageRlhf));
+        OnPropertyChanged(nameof(TrainingRlhfFeedbackSource));
+        OnPropertyChanged(nameof(TrainingRlhfFeedbackPath));
+        OnPropertyChanged(nameof(TrainingRewardModelingEnabled));
+        OnPropertyChanged(nameof(TrainingSafetyPolicyMode));
+        OnPropertyChanged(nameof(TrainingExportOnnx));
+        OnPropertyChanged(nameof(TrainingExportGguf));
+        OnPropertyChanged(nameof(TrainingEvalSuite));
+        OnPropertyChanged(nameof(TrainingWizardDetailedText));
+        OnPropertyChanged(nameof(TrainingPreflightText));
         OnPropertyChanged(nameof(ParameterEstimate));
     }
 
@@ -1788,11 +2612,148 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             TokenizerKind.Character => "Preset Character: vocab 256, min freq 1, merges 0. Utile per dataset piccolo o testi rumorosi.",
             TokenizerKind.Word => "Preset Word: vocab proporzionale al dataset, min freq 2, merges 0. Più leggibile ma più OOV su parole nuove.",
+            TokenizerKind.ByteLevelBpe => "Preset Byte-level BPE: robusto su UTF-8 e simboli, con merges medi/alti per corpus reali.",
+            TokenizerKind.Unigram => "Preset Unigram: subword probabilistico, efficace su corpora vari e testi misti.",
+            TokenizerKind.WordPiece => "Preset WordPiece: subword con prefisso ##, utile per pipeline di fine-tuning NLP.",
             TokenizerKind.SimpleBpe => "Preset BPE: vocab e merges medi, min freq 2. Buon compromesso tra robustezza e compressione.",
             TokenizerKind.HybridFallback => "Preset Hybrid: come BPE ma con fallback char per OOV. Più robusto in generazione reale.",
             TokenizerKind.HierarchicalExperimental => "Preset Experimental: parametri alti per esplorazione macro/subword; non consigliato per produzione.",
             _ => string.Empty
         };
+    }
+
+    private string BuildTokenizerPresetBadgeText()
+    {
+        return SelectedTokenizerKind switch
+        {
+            TokenizerKind.Character => "Mode: Educational",
+            TokenizerKind.Word => "Mode: Basic NLP",
+            TokenizerKind.SimpleBpe => "Mode: Balanced",
+            TokenizerKind.ByteLevelBpe => "Mode: Robust UTF-8",
+            TokenizerKind.Unigram => "Mode: Probabilistic Subword",
+            TokenizerKind.WordPiece => "Mode: Fine-tuning Ready",
+            TokenizerKind.HybridFallback => "Mode: Production-safe Local",
+            TokenizerKind.HierarchicalExperimental => "Mode: Experimental",
+            _ => "Mode: Custom"
+        };
+    }
+
+    private string BuildTokenizerIdealValuesText()
+    {
+        var probe = Clone(TokenizerConfig);
+        GuidedDefaultsEngine.ApplyTokenizerPreset(SelectedTokenizerKind, DatasetText, probe);
+        var fallback = probe.UseCharacterFallback ? "on" : "off";
+        return $"Ideal values: vocab {probe.TargetVocabSize:N0}, min freq {probe.MinFrequency}, merges {probe.MaxMerges:N0}, char fallback {fallback}.";
+    }
+
+    private string BuildRoadmapChecklistText()
+    {
+        return string.Join('\n',
+            "Roadmap Checklist (in-app):",
+            "- Advanced Training panel: completed/verified",
+            "- Guided defaults engine: completed/verified",
+            "- Advanced tokenizer options: byte-level BPE + unigram + wordpiece",
+            "- Multi-GPU/cluster/RLHF: planned next blocks");
+    }
+
+    private string BuildTrainingPreflightText()
+    {
+        var notes = new List<string>();
+
+        if (TrainingConfig.DistributedTraining)
+        {
+            var wsRaw = Environment.GetEnvironmentVariable("WORLD_SIZE");
+            if (!int.TryParse(wsRaw, out var ws) || ws <= 1)
+                notes.Add("Distributed ON: set WORLD_SIZE>1 before start.");
+            else
+                notes.Add($"Distributed ON: WORLD_SIZE={ws}.");
+            notes.Add($"Multi-GPU strategy: {TrainingConfig.MultiGpuStrategy}.");
+        }
+        else
+        {
+            notes.Add("Distributed OFF: single-device mode.");
+        }
+        if (TrainingConfig.OrchestratePipelineStages)
+        {
+            notes.Add($"Pipeline ON: data={TrainingConfig.PipelineRunDataStage}, preprocess={TrainingConfig.PipelineRunPreprocessStage}, train={TrainingConfig.PipelineRunTrainStage}, eval={TrainingConfig.PipelineRunEvalStage}.");
+        }
+        else
+        {
+            notes.Add("Pipeline OFF: single train stage.");
+        }
+
+        notes.Add($"Grad accumulation: x{Math.Max(1, TrainingConfig.GradientAccumulationSteps)}.");
+        notes.Add($"Auto device map: {(TrainingConfig.AutoDeviceMap ? "ON" : "OFF")}.");
+        if (TrainingConfig.FineTuningOrchestration)
+            notes.Add($"Fine-tuning pipeline ON: sft={TrainingConfig.FineTuneStageSft}, dpo={TrainingConfig.FineTuneStageDpo}, rlhf={TrainingConfig.FineTuneStageRlhf}.");
+        else
+            notes.Add($"Fine-tuning pipeline OFF: alignment mode={TrainingConfig.AlignmentMode}.");
+        if (TrainingConfig.FineTuneStageRlhf && string.Equals(TrainingConfig.RlhfFeedbackSource, "inline", StringComparison.OrdinalIgnoreCase))
+            notes.Add($"RLHF inline feedback collected: {RlhfCollectedFeedback.Count}.");
+        notes.Add($"Reward model: {(TrainingConfig.RewardModelingEnabled ? "ON" : "OFF")}.");
+        notes.Add($"Safety policy: {TrainingConfig.SafetyPolicyMode}.");
+        notes.Add($"Export targets: onnx={TrainingConfig.ExportOnnx}, gguf={TrainingConfig.ExportGguf}.");
+        notes.Add($"Cluster profile: {TrainingConfig.ClusterProfileName} ({TrainingConfig.ClusterOrchestrator}, world={TrainingConfig.ClusterWorldSize}).");
+
+        notes.Add($"Eval pack: {TrainingConfig.EvalSuite}");
+
+        if (TrainingConfig.EnablePostTrainingQuantization && !TrainingConfig.ForceCpu)
+            notes.Add("Quantization ON but Force CPU OFF (artifact may be skipped).");
+        if (TrainingConfig.EnablePostTrainingQuantization)
+            notes.Add($"Quant profile: {TrainingConfig.QuantizationProfile}, calib={TrainingConfig.QuantizationCalibrationSamples}.");
+        if (TrainingConfig.EnableQatPath)
+            notes.Add($"QAT path ON: fine-tune steps={TrainingConfig.QatFineTuneSteps}.");
+
+        if (TrainingConfig.MixedPrecision && TrainingConfig.ForceCpu)
+            notes.Add("Mixed precision ON with Force CPU (no CUDA AMP gain).");
+
+        return string.Join(" ", notes);
+    }
+
+    private string BuildTrainingWizardDetailedText()
+    {
+        var lines = new List<string>
+        {
+            "Guided Wizards:",
+            $"1) Multi-GPU setup: {(TrainingConfig.DistributedTraining && !string.Equals(TrainingConfig.MultiGpuStrategy, "none", StringComparison.OrdinalIgnoreCase) ? "OK" : "Configure Distributed + strategy")}.",
+            $"2) Cluster profile: {(string.IsNullOrWhiteSpace(TrainingConfig.ClusterProfileName) ? "Select profile" : $"OK ({TrainingConfig.ClusterProfileName})")}.",
+            $"3) RLHF import: {(TrainingConfig.FineTuneStageRlhf ? (string.IsNullOrWhiteSpace(TrainingConfig.RlhfFeedbackPath) && !string.Equals(TrainingConfig.RlhfFeedbackSource, "inline", StringComparison.OrdinalIgnoreCase) ? "Set feedback path" : "OK") : "Optional")}.",
+            $"4) Eval pack: {(string.IsNullOrWhiteSpace(TrainingConfig.EvalSuite) ? "Select eval suite" : $"OK ({TrainingConfig.EvalSuite})")}."
+        };
+        return string.Join("\n", lines);
+    }
+
+    private string? GetBlockingPreflightIssue()
+    {
+        if (TrainingConfig.FineTuningOrchestration
+            && !TrainingConfig.FineTuneStageSft
+            && !TrainingConfig.FineTuneStageDpo
+            && !TrainingConfig.FineTuneStageRlhf)
+            return "Fine-tuning orchestration is ON but no SFT/DPO/RLHF stage is selected.";
+        if (TrainingConfig.FineTuneStageRlhf
+            && !string.Equals(TrainingConfig.RlhfFeedbackSource, "inline", StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrWhiteSpace(TrainingConfig.RlhfFeedbackPath))
+            return "RLHF stage requires feedback path when feedback source is not inline.";
+        if (TrainingConfig.FineTuneStageRlhf
+            && string.Equals(TrainingConfig.RlhfFeedbackSource, "inline", StringComparison.OrdinalIgnoreCase)
+            && RlhfCollectedFeedback.Count == 0
+            && string.IsNullOrWhiteSpace(TrainingConfig.RlhfFeedbackPath))
+            return "RLHF inline mode requires collected feedback records. Add at least one record in Advanced Training.";
+
+        if (TrainingConfig.OrchestratePipelineStages && !TrainingConfig.PipelineRunTrainStage)
+            return "Pipeline orchestration is ON but Train stage is disabled. Enable train stage or disable orchestration.";
+
+        if (!TrainingConfig.DistributedTraining) return null;
+
+        var wsRaw = Environment.GetEnvironmentVariable("WORLD_SIZE");
+        if (!int.TryParse(wsRaw, out var ws) || ws <= 1)
+            return "Distributed training requires WORLD_SIZE > 1. Set WORLD_SIZE/RANK/LOCAL_RANK and retry, or disable Distributed mode.";
+        if (TrainingConfig.ClusterWorldSize > 1 && ws != TrainingConfig.ClusterWorldSize)
+            return $"Distributed preflight mismatch: WORLD_SIZE={ws} but ClusterWorldSize={TrainingConfig.ClusterWorldSize}. Align values before training.";
+        if (string.Equals(TrainingConfig.MultiGpuStrategy, "none", StringComparison.OrdinalIgnoreCase))
+            return "Distributed mode is ON but Multi-GPU strategy is 'none'. Select 'ddp' or 'fsdp', or disable Distributed mode.";
+
+        return null;
     }
 
     private static string ResolveProjectRoot()
