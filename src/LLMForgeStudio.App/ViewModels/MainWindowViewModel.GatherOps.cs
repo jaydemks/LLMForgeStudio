@@ -568,11 +568,7 @@ public sealed partial class MainWindowViewModel
         else if (Directory.Exists(staged))
         {
             var candidates = Directory.EnumerateFiles(staged, "*.*", SearchOption.AllDirectories)
-                         .Where(p => p.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-                                  || p.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
-                                  || p.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
-                                  || p.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase)
-                                  || p.EndsWith(".json", StringComparison.OrdinalIgnoreCase)).ToList();
+                         .Where(IsSupportedDatasetFile).ToList();
             var total = Math.Max(1, candidates.Count);
             var idx = 0;
             foreach (var f in candidates)
@@ -614,7 +610,14 @@ public sealed partial class MainWindowViewModel
         var metadataOnly = computed.metadataOnly;
 
         GatherRecommendedTokenizer = stats.CharacterCount > 2_000_000 ? "ByteLevelBpe" : "SimpleBpe";
-        GatherRecommendedTrainingProfile = stats.CharacterCount > 5_000_000 ? "Serious" : "Balanced";
+        var looksStructuredChat = LooksLikeStructuredChatDataset(raw);
+        GatherRecommendedTrainingProfile = stats.CharacterCount switch
+        {
+            < 200_000 => "Tiny",
+            < 8_000_000 => looksStructuredChat ? "Serious" : "Balanced",
+            < 20_000_000 => "Serious",
+            _ => "Research"
+        };
         GatherValidationText = $"Readiness={quality} | chars={stats.CharacterCount:N0} | lines={stats.LineCount:N0} | dup_ratio={dupRatio:P1} | non_ascii={nonAsciiRatio:P1} | avg_line={avgLineLength:N1} | metadata_only={(metadataOnly ? "yes" : "no")} | tokenizer={GatherRecommendedTokenizer} | profile={GatherRecommendedTrainingProfile}";
         var analyticsPath = Path.Combine(ResolveGatherWorkspace(), "dataset_analytics.json");
         var analytics = new

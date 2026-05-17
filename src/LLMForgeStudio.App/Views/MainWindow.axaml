@@ -154,8 +154,8 @@
             <TextBlock Classes="h2" Text="Dataset" />
             <TextBlock Classes="muted" Text="{Binding DatasetHelpText}" />
             <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
-              <Button Content="Import Dataset" Click="OnImportDatasetClick" ToolTip.Tip="Importa un file .txt/.md/.csv, applica la pulizia configurata e aggiorna le statistiche dataset." />
-              <Button Grid.Column="1" Content="Import Folder" Click="OnImportDatasetFolderClick" ToolTip.Tip="Importa una cartella e unisce tutti i file .txt/.md/.csv in un unico dataset." />
+              <Button Content="Import Dataset" Click="OnImportDatasetClick" ToolTip.Tip="Importa un file dataset specifico (.jsonl/.json/.csv/.txt), applica la pulizia configurata e aggiorna le statistiche." />
+              <Button Grid.Column="1" Content="Import Folder" Click="OnImportDatasetFolderClick" ToolTip.Tip="Importa una cartella e unisce i file supportati (.jsonl/.json/.csv/.txt) in un unico dataset." />
               <TextBox Grid.Column="2" Text="{Binding DatasetPath}" IsReadOnly="True" HorizontalAlignment="Stretch"
                        TextWrapping="NoWrap" ScrollViewer.HorizontalScrollBarVisibility="Hidden"
                        ToolTip.Tip="{Binding DatasetPathTooltipText}" />
@@ -356,20 +356,32 @@
           <StackPanel Spacing="12">
             <TextBlock Classes="h2" Text="Training" />
             <Grid ColumnDefinitions="160,*,160,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
-              <TextBlock Grid.Row="0" Grid.Column="0" Text="Batch size" />
-              <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding TrainingBatchSize}" Minimum="1" Maximum="1024" ToolTip.Tip="Numero sequenze processate per step di training." />
-              <TextBlock Grid.Row="0" Grid.Column="2" Text="Max steps" />
-              <NumericUpDown Grid.Row="0" Grid.Column="3" Value="{Binding TrainingMaxSteps}" Minimum="1" Maximum="1000000" ToolTip.Tip="Numero massimo iterazioni di ottimizzazione." />
-              <TextBlock Grid.Row="1" Grid.Column="0" Text="Learning rate" />
-              <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding TrainingLearningRate}" Minimum="0" Maximum="1" Increment="0.0001" ToolTip.Tip="Passo di aggiornamento pesi. Troppo alto diverge, troppo basso rallenta." />
-              <TextBlock Grid.Row="1" Grid.Column="2" Text="Eval every" />
-              <NumericUpDown Grid.Row="1" Grid.Column="3" Value="{Binding TrainingEvalEvery}" Minimum="1" Maximum="100000" ToolTip.Tip="Ogni quanti step calcolare metrica validation e scrivere log esteso." />
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="Batch size" Foreground="{Binding TrainingBatchLabelBrush}" />
+              <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
+                <NumericUpDown Value="{Binding TrainingBatchSize}" Minimum="1" Maximum="1024" ToolTip.Tip="Numero sequenze processate per step di training." />
+                <TextBlock Classes="muted" Foreground="{Binding TrainingBatchLabelBrush}" IsVisible="{Binding TrainingBatchAdvisorVisible}" Text="{Binding TrainingBatchAdvisorText}" />
+              </StackPanel>
+              <TextBlock Grid.Row="0" Grid.Column="2" Text="Max steps" Foreground="{Binding TrainingMaxStepsLabelBrush}" />
+              <StackPanel Grid.Row="0" Grid.Column="3" Spacing="2">
+                <NumericUpDown Value="{Binding TrainingMaxSteps}" Minimum="1" Maximum="1000000" ToolTip.Tip="Numero massimo iterazioni di ottimizzazione." />
+                <TextBlock Classes="muted" Foreground="{Binding TrainingMaxStepsLabelBrush}" IsVisible="{Binding TrainingMaxStepsAdvisorVisible}" Text="{Binding TrainingMaxStepsAdvisorText}" />
+              </StackPanel>
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="Learning rate" Foreground="{Binding TrainingLearningRateLabelBrush}" />
+              <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
+                <NumericUpDown Value="{Binding TrainingLearningRate}" Minimum="0" Maximum="1" Increment="0.0001" ToolTip.Tip="Passo di aggiornamento pesi. Troppo alto diverge, troppo basso rallenta." />
+                <TextBlock Classes="muted" Foreground="{Binding TrainingLearningRateLabelBrush}" IsVisible="{Binding TrainingLearningRateAdvisorVisible}" Text="{Binding TrainingLearningRateAdvisorText}" />
+              </StackPanel>
+              <TextBlock Grid.Row="1" Grid.Column="2" Text="Eval every" Foreground="{Binding TrainingEvalEveryLabelBrush}" />
+              <StackPanel Grid.Row="1" Grid.Column="3" Spacing="2">
+                <NumericUpDown Value="{Binding TrainingEvalEvery}" Minimum="1" Maximum="100000" ToolTip.Tip="Ogni quanti step calcolare metrica validation e scrivere log esteso." />
+                <TextBlock Classes="muted" Foreground="{Binding TrainingEvalEveryLabelBrush}" IsVisible="{Binding TrainingEvalEveryAdvisorVisible}" Text="{Binding TrainingEvalEveryAdvisorText}" />
+              </StackPanel>
               <TextBlock Grid.Row="2" Grid.Column="0" Text="Python" />
               <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding PythonPath}" ToolTip.Tip="Path all'interprete Python usato dal backend (es. .venv\\Scripts\\python.exe)." />
               <TextBlock Grid.Row="3" Grid.Column="0" Text="Run directory" />
               <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding RunDirectory}" ToolTip.Tip="Cartella output run: contiene train_log.jsonl, checkpoint e manifest del training." />
             </Grid>
-            <Expander Header="Advanced Training (Serious)" IsExpanded="{Binding ShowAdvancedTraining}">
+            <Expander Header="{Binding AdvancedTrainingHeaderText}" IsExpanded="{Binding ShowAdvancedTraining}">
               <StackPanel Spacing="10" Margin="0,8,0,0">
                 <Grid ColumnDefinitions="160,*,160,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Profile" />
@@ -389,22 +401,22 @@
 
                   <TextBlock Grid.Row="3" Grid.Column="0" Text="Precision" />
                   <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding PrecisionOptions}" SelectedItem="{Binding TrainingPrecision}" />
-                  <TextBlock Grid.Row="3" Grid.Column="2" Text="Grad clipping" />
+                  <TextBlock Grid.Row="3" Grid.Column="2" Text="Grad clipping" Foreground="{Binding TrainingGradientClippingLabelBrush}" />
                   <ToggleSwitch Grid.Row="3" Grid.Column="3" IsChecked="{Binding TrainingGradientClipping}" />
 
                   <TextBlock Grid.Row="4" Grid.Column="0" Text="Clip norm" />
                   <NumericUpDown Grid.Row="4" Grid.Column="1" Minimum="0" Maximum="100" Increment="0.1" Value="{Binding TrainingGradientClipNorm}" />
-                  <TextBlock Grid.Row="4" Grid.Column="2" Text="Dedup dataset" />
+                  <TextBlock Grid.Row="4" Grid.Column="2" Text="Dedup dataset" Foreground="{Binding TrainingDedupLabelBrush}" />
                   <ToggleSwitch Grid.Row="4" Grid.Column="3" IsChecked="{Binding TrainingDedup}" />
 
                   <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal" Spacing="10">
                     <CheckBox Content="Lines" IsChecked="{Binding TrainingDedupLines}" />
-                    <CheckBox Content="Paragraphs" IsChecked="{Binding TrainingDedupParagraphs}" />
+                    <CheckBox Content="Paragraphs" Foreground="{Binding TrainingDedupParagraphsLabelBrush}" IsChecked="{Binding TrainingDedupParagraphs}" />
                     <CheckBox Content="Normalize Unicode" IsChecked="{Binding TrainingNormalizeUnicode}" />
-                    <CheckBox Content="Collapse whitespace" IsChecked="{Binding TrainingCollapseWhitespace}" />
+                    <CheckBox Content="Collapse whitespace" Foreground="{Binding TrainingCollapseWhitespaceLabelBrush}" IsChecked="{Binding TrainingCollapseWhitespace}" />
                   </StackPanel>
 
-                  <TextBlock Grid.Row="6" Grid.Column="0" Text="Curriculum learning" />
+                  <TextBlock Grid.Row="6" Grid.Column="0" Text="Curriculum learning" Foreground="{Binding TrainingCurriculumLearningLabelBrush}" />
                   <ToggleSwitch Grid.Row="6" Grid.Column="1" IsChecked="{Binding TrainingCurriculumLearning}" />
                   <TextBlock Grid.Row="6" Grid.Column="2" Text="Warmup ratio" />
                   <NumericUpDown Grid.Row="6" Grid.Column="3" Minimum="0.05" Maximum="0.9" Increment="0.01" Value="{Binding TrainingCurriculumWarmupRatio}" />
@@ -424,6 +436,13 @@
                   <TextBlock Grid.Row="9" Grid.Column="2" Text="Quant calib samples" />
                   <NumericUpDown Grid.Row="9" Grid.Column="3" Minimum="1" Maximum="100000" Value="{Binding TrainingQuantizationCalibrationSamples}" />
                 </Grid>
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="muted" Foreground="{Binding TrainingGradientClippingLabelBrush}" IsVisible="{Binding TrainingGradientClippingAdvisorVisible}" Text="{Binding TrainingGradientClippingAdvisorText}" />
+                  <TextBlock Classes="muted" Foreground="{Binding TrainingDedupLabelBrush}" IsVisible="{Binding TrainingDedupAdvisorVisible}" Text="{Binding TrainingDedupAdvisorText}" />
+                  <TextBlock Classes="muted" Foreground="{Binding TrainingDedupParagraphsLabelBrush}" IsVisible="{Binding TrainingDedupParagraphsAdvisorVisible}" Text="{Binding TrainingDedupParagraphsAdvisorText}" />
+                  <TextBlock Classes="muted" Foreground="{Binding TrainingCollapseWhitespaceLabelBrush}" IsVisible="{Binding TrainingCollapseWhitespaceAdvisorVisible}" Text="{Binding TrainingCollapseWhitespaceAdvisorText}" />
+                  <TextBlock Classes="muted" Foreground="{Binding TrainingCurriculumLearningLabelBrush}" IsVisible="{Binding TrainingCurriculumLearningAdvisorVisible}" Text="{Binding TrainingCurriculumLearningAdvisorText}" />
+                </StackPanel>
                 <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingProfileHintText}" />
                 <StackPanel Orientation="Horizontal" Spacing="10">
                   <CheckBox Content="Auto device map" IsChecked="{Binding TrainingAutoDeviceMap}" />

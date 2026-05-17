@@ -128,7 +128,8 @@ Community note:
 
 - Implementation roadmap: [ROADMAP.md](ROADMAP.md)
 - Manual validation steps: [RELEASE_VALIDATION_CHECKLIST.md](RELEASE_VALIDATION_CHECKLIST.md)
-- Current release summary: [RELEASE_NOTES_v1.0.3.md](RELEASE_NOTES_v1.0.3.md)
+- Current release summary: [RELEASE_NOTES_v1.0.4.md](RELEASE_NOTES_v1.0.4.md)
+- Future draft notes: [RELEASE_NOTES_v1.0.5_FUTURE_DRAFT.md](RELEASE_NOTES_v1.0.5_FUTURE_DRAFT.md)
 - Archived release notes: [OLD_RELEASES_NOTES](OLD_RELEASES_NOTES)
 - SEO/discoverability setup playbook: [GITHUB_SEO_PROFILE.md](GITHUB_SEO_PROFILE.md)
 
@@ -149,7 +150,8 @@ This table tracks real user-reported timings for quick comparison and future tun
 
 | Date | Dataset | Rows | Approx Size | Step | Time | Hardware Note |
 |---|---|---:|---:|---|---|---|
-| 2026-05-17 | `samples/validation/it_quick_chat_6k/train.jsonl` | 6,000 | ~2.6 MB | Tokenizer training | ~2m 50s | RTX 3090 + 24GB VRAM, 32GB RAM |
+| 2026-05-17 | `samples/validation/it_quick_chat_6k/train.jsonl` | 6,000 | ~2.6 MB | Tokenizer training | ~2m 50s | CPU-bound tokenization run, 32GB RAM |
+| 2026-05-17 | `samples/validation/it_chat_conversation_4k/train.jsonl` | 4,000 | ~TBD | Tokenizer training | pending re-test | Replaced old 10k sample due to high template repetition; re-benchmark in progress |
 
 ## Project Structure
 

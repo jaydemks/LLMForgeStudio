@@ -1,3 +1,4 @@
 numpy>=1.26.0
+onnx>=1.16.0
 # Torch packages are installed automatically by the app setup
 # based on detected hardware (NVIDIA / AMD / CPU fallback).

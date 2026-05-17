@@ -1,4 +1,5 @@
 using LLMForgeStudio.App.Core.Dataset;
+using LLMForgeStudio.App.Core.Generation;
 using LLMForgeStudio.App.Core.Tokenization;
 using LLMForgeStudio.App.Core.Training;
 
@@ -222,20 +223,22 @@ public static class GuidedDefaultsEngine
                 break;
             case "Serious":
                 training.BatchSize = 12;
-                training.MaxSteps = Math.Max(training.MaxSteps, 3000);
-                training.LearningRate = 8e-5;
-                training.EvalEvery = 60;
+                training.MaxSteps = Math.Max(training.MaxSteps, 1800);
+                training.LearningRate = 6e-5;
+                training.EvalEvery = 40;
                 training.Optimizer = "adamw";
                 training.Scheduler = "cosine";
-                training.WarmupSteps = 400;
+                training.WarmupSteps = 250;
                 training.MixedPrecision = true;
                 training.Precision = "fp16";
                 training.EnableGradientClipping = true;
                 training.GradientClipNorm = 1.0;
-                training.CheckpointEvery = 200;
+                training.CheckpointEvery = 150;
                 training.EnableDeduplication = true;
                 training.RemoveDuplicateLines = true;
+                training.RemoveDuplicateParagraphs = true;
                 training.NormalizeUnicode = true;
+                training.CollapseWhitespace = true;
                 training.CurriculumLearning = true;
                 training.CurriculumWarmupRatio = 0.2;
                 training.EvalSuite = "standard-10";
@@ -256,7 +259,7 @@ public static class GuidedDefaultsEngine
                 training.RlhfFeedbackPath = string.Empty;
                 training.RewardModelingEnabled = true;
                 training.SafetyPolicyMode = "standard";
-                training.ExportOnnx = true;
+                training.ExportOnnx = false;
                 training.ExportGguf = false;
                 break;
             case "Research":
@@ -298,7 +301,7 @@ public static class GuidedDefaultsEngine
                 training.RlhfFeedbackPath = string.Empty;
                 training.RewardModelingEnabled = true;
                 training.SafetyPolicyMode = "research";
-                training.ExportOnnx = true;
+                training.ExportOnnx = false;
                 training.ExportGguf = true;
                 break;
             case "Cluster":
@@ -339,9 +342,64 @@ public static class GuidedDefaultsEngine
                 training.RlhfFeedbackPath = string.Empty;
                 training.RewardModelingEnabled = true;
                 training.SafetyPolicyMode = "strict";
-                training.ExportOnnx = true;
+                training.ExportOnnx = false;
                 training.ExportGguf = true;
                 break;
+        }
+    }
+
+    public static void ApplySamplingProfile(string profile, TokenizerKind tokenizerKind, SamplingConfig sampling)
+    {
+        // Chat-first, user-friendly defaults:
+        // - random seed by default for natural behavior
+        // - slightly lower temperature/top-k on fragile tokenizers
+        // - profile-aware output budget
+        profile = string.IsNullOrWhiteSpace(profile) ? "Balanced" : profile.Trim();
+
+        sampling.Seed = -1;
+        sampling.Greedy = false;
+
+        switch (profile)
+        {
+            case "Tiny":
+                sampling.Temperature = 0.40;
+                sampling.TopK = 24;
+                sampling.MaxNewTokens = 80;
+                break;
+            case "Serious":
+                sampling.Temperature = 0.42;
+                sampling.TopK = 28;
+                sampling.MaxNewTokens = 120;
+                break;
+            case "Research":
+                sampling.Temperature = 0.48;
+                sampling.TopK = 40;
+                sampling.MaxNewTokens = 160;
+                break;
+            case "Cluster":
+                sampling.Temperature = 0.42;
+                sampling.TopK = 30;
+                sampling.MaxNewTokens = 140;
+                break;
+            case "Balanced":
+            default:
+                sampling.Temperature = 0.45;
+                sampling.TopK = 30;
+                sampling.MaxNewTokens = 100;
+                break;
+        }
+
+        // Tokenizer-aware safety tuning.
+        if (tokenizerKind is TokenizerKind.Character or TokenizerKind.HierarchicalExperimental)
+        {
+            sampling.Temperature = Math.Min(sampling.Temperature, 0.40);
+            sampling.TopK = Math.Min(sampling.TopK, 24);
+            sampling.MaxNewTokens = Math.Min(sampling.MaxNewTokens, 100);
+        }
+        else if (tokenizerKind is TokenizerKind.ByteLevelBpe or TokenizerKind.SimpleBpe or TokenizerKind.HybridFallback)
+        {
+            sampling.Temperature = Math.Min(sampling.Temperature, 0.45);
+            sampling.TopK = Math.Min(sampling.TopK, 30);
         }
     }
 

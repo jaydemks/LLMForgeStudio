@@ -22,7 +22,11 @@ public partial class MainWindow : Window
             Title = "Import dataset",
             FileTypeFilter =
             [
-                new FilePickerFileType("Text Files") { Patterns = ["*.txt", "*.md", "*.csv"] }
+                new FilePickerFileType("Dataset Files") { Patterns = ["*.jsonl", "*.json", "*.csv", "*.txt"] },
+                new FilePickerFileType("JSONL") { Patterns = ["*.jsonl"] },
+                new FilePickerFileType("JSON") { Patterns = ["*.json"] },
+                new FilePickerFileType("CSV") { Patterns = ["*.csv"] },
+                new FilePickerFileType("Text") { Patterns = ["*.txt"] }
             ]
         });
 

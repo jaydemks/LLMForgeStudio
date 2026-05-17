@@ -96,6 +96,141 @@ def block_repeated_ngrams(logits: torch.Tensor, all_ids: list[int], ngram_size: 
     return logits
 
 
+def encode_with_tokenizer(prompt_text: str, stoi: dict[str, int], tokenizer_type: str) -> list[int]:
+    if tokenizer_type == "char":
+        ids = [stoi[ch] for ch in prompt_text if ch in stoi]
+        return ids if ids else [0]
+
+    # UI tokenizer-state with ByteLevelBPE vocabulary uses hex-byte symbols and
+    # merged symbols separated by "|", e.g. "43|65|72". Handle this path explicitly.
+    if _looks_like_bytelevel_vocab(stoi):
+        return _encode_bytelevel_prompt(prompt_text, stoi)
+
+    vocab_tokens = [t for t in stoi.keys() if t]
+    if not vocab_tokens:
+        return [0]
+    vocab_set = set(vocab_tokens)
+    max_len = max(len(t) for t in vocab_tokens)
+
+    i = 0
+    ids: list[int] = []
+    while i < len(prompt_text):
+        matched = None
+        upper = min(max_len, len(prompt_text) - i)
+        for k in range(upper, 0, -1):
+            piece = prompt_text[i : i + k]
+            if piece in vocab_set:
+                matched = piece
+                break
+        if matched is not None:
+            ids.append(stoi[matched])
+            i += len(matched)
+            continue
+
+        ch = prompt_text[i]
+        if ch in stoi:
+            ids.append(stoi[ch])
+        else:
+            ids.append(0)
+        i += 1
+
+    return ids if ids else [0]
+
+
+_HEX_RE = re.compile(r"^[0-9A-Fa-f]{2}$")
+
+
+def _looks_like_bytelevel_vocab(stoi: dict[str, int]) -> bool:
+    if not stoi:
+        return False
+    sample = list(stoi.keys())[:200]
+    if not sample:
+        return False
+
+    hits = 0
+    for tok in sample:
+        parts = tok.split("|")
+        if parts and all(_HEX_RE.match(p or "") for p in parts):
+            hits += 1
+    return (hits / max(1, len(sample))) >= 0.35
+
+
+def _encode_bytelevel_prompt(prompt_text: str, stoi: dict[str, int]) -> list[int]:
+    byte_tokens = [f"{b:02X}" for b in prompt_text.encode("utf-8", errors="replace")]
+    if not byte_tokens:
+        return [0]
+
+    max_parts = 1
+    for tok in stoi.keys():
+        c = tok.count("|") + 1
+        if c > max_parts:
+            max_parts = c
+
+    ids: list[int] = []
+    i = 0
+    n = len(byte_tokens)
+    while i < n:
+        matched = None
+        upper = min(max_parts, n - i)
+        for span in range(upper, 0, -1):
+            candidate = "|".join(byte_tokens[i : i + span])
+            if candidate in stoi:
+                matched = candidate
+                break
+        if matched is not None:
+            ids.append(int(stoi[matched]))
+            i += matched.count("|") + 1
+            continue
+
+        base = byte_tokens[i]
+        if base in stoi:
+            ids.append(int(stoi[base]))
+        else:
+            ids.append(0)
+        i += 1
+
+    return ids if ids else [0]
+
+
+def decode_ids_with_tokenizer(ids: list[int], itos: dict[int, str], tokenizer_type: str) -> str:
+    if tokenizer_type == "char":
+        return "".join(itos.get(i, "?") for i in ids)
+
+    if _looks_like_bytelevel_itos(itos):
+        return _decode_bytelevel_ids(ids, itos)
+
+    return "".join(itos.get(i, "?") for i in ids)
+
+
+def _looks_like_bytelevel_itos(itos: dict[int, str]) -> bool:
+    if not itos:
+        return False
+    sample = list(itos.values())[:200]
+    if not sample:
+        return False
+
+    hits = 0
+    for tok in sample:
+        parts = str(tok).split("|")
+        if parts and all(_HEX_RE.match(p or "") for p in parts):
+            hits += 1
+    return (hits / max(1, len(sample))) >= 0.35
+
+
+def _decode_bytelevel_ids(ids: list[int], itos: dict[int, str]) -> str:
+    out = bytearray()
+    for tid in ids:
+        tok = itos.get(int(tid), "")
+        if not tok:
+            continue
+        for part in str(tok).split("|"):
+            if _HEX_RE.match(part or ""):
+                out.append(int(part, 16))
+    if not out:
+        return ""
+    return out.decode("utf-8", errors="replace")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True)
@@ -130,6 +265,7 @@ def main():
 
     tok = json.loads(tokenizer_path.read_text(encoding="utf-8"))
     stoi = tok["stoi"]
+    tokenizer_type = str(tok.get("type", "char"))
     itos = {int(k): v for k, v in tok["itos"].items()}
 
     payload = torch.load(model_path, map_location="cpu")
@@ -158,9 +294,7 @@ def main():
             "Risposta:"
         )
 
-    ids = [stoi[ch] for ch in prompt_text if ch in stoi]
-    if not ids:
-        ids = [0]
+    ids = encode_with_tokenizer(prompt_text, stoi, tokenizer_type)
     prompt_len = len(ids)
     idx = torch.tensor([ids], dtype=torch.long, device=device)
 
@@ -182,12 +316,12 @@ def main():
         idx = torch.cat([idx, next_id], dim=1)
 
         # Early-stop once assistant output starts turning into a new prompt/turn.
-        generated = "".join(itos.get(i, "?") for i in idx[0].tolist()[prompt_len:])
+        generated = decode_ids_with_tokenizer(idx[0].tolist()[prompt_len:], itos, tokenizer_type)
         if any(marker in generated for marker in stop_markers):
             break
 
-    full = "".join(itos.get(i, "?") for i in idx[0].tolist())
-    completion = "".join(itos.get(i, "?") for i in idx[0].tolist()[prompt_len:])
+    full = decode_ids_with_tokenizer(idx[0].tolist(), itos, tokenizer_type)
+    completion = decode_ids_with_tokenizer(idx[0].tolist()[prompt_len:], itos, tokenizer_type)
 
     # Prefer assistant-only text when tag is present.
     marker = "<|assistant|>"

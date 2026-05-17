@@ -1,0 +1,11 @@
+{
+  "name": "it_chat_conversation_4k",
+  "version": "v4_diverse_chat_first",
+  "rows": 4000,
+  "language": "it",
+  "notes": [
+    "Reduced fixed boilerplate and repeated endings to limit mode collapse",
+    "Higher response-shape diversity (short, structured, direct, explanatory)",
+    "Italian chat-first baseline for from-scratch validation"
+  ]
+}

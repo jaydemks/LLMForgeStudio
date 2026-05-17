@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using System.Windows.Input;
 using System.Threading;
 using Avalonia;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using LLMForgeStudio.App.Core.Backend;
@@ -734,6 +735,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             TrainingConfig.BatchSize = value;
             OnPropertyChanged();
             RefreshWarnings();
+            ClearTrainingAdvisorForField(nameof(TrainingBatchSize));
         }
     }
     public int TrainingMaxSteps
@@ -745,6 +747,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             TrainingConfig.MaxSteps = value;
             OnPropertyChanged();
             RefreshWarnings();
+            ClearTrainingAdvisorForField(nameof(TrainingMaxSteps));
         }
     }
     public double TrainingLearningRate
@@ -756,6 +759,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             TrainingConfig.LearningRate = value;
             OnPropertyChanged();
             RefreshWarnings();
+            ClearTrainingAdvisorForField(nameof(TrainingLearningRate));
         }
     }
     public int TrainingEvalEvery
@@ -767,6 +771,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             TrainingConfig.EvalEvery = value;
             OnPropertyChanged();
             RefreshWarnings();
+            ClearTrainingAdvisorForField(nameof(TrainingEvalEvery));
         }
     }
     public bool ShowAdvancedTraining
@@ -784,8 +789,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
             RaiseModelTrainingBindingsChanged();
             RefreshWarnings();
             OnPropertyChanged(nameof(TrainingProfileHintText));
+            OnPropertyChanged(nameof(AdvancedTrainingHeaderText));
         }
     }
+    public string AdvancedTrainingHeaderText => IsEnglish
+        ? $"Advanced Training ({SelectedTrainingProfile})"
+        : $"Training Avanzato ({SelectedTrainingProfile})";
     public string TrainingProfileHintText => GuidedDefaultsEngine.DescribeTrainingProfile(SelectedTrainingProfile);
     public string TrainingOptimizer
     {
@@ -849,6 +858,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             if (TrainingConfig.EnableGradientClipping == value) return;
             TrainingConfig.EnableGradientClipping = value;
             OnPropertyChanged();
+            ClearTrainingAdvisorForField(nameof(TrainingGradientClipping));
         }
     }
     public double TrainingGradientClipNorm
@@ -937,6 +947,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             if (TrainingConfig.EnableDeduplication == value) return;
             TrainingConfig.EnableDeduplication = value;
             OnPropertyChanged();
+            ClearTrainingAdvisorForField(nameof(TrainingDedup));
         }
     }
     public bool TrainingDedupLines
@@ -957,6 +968,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             if (TrainingConfig.RemoveDuplicateParagraphs == value) return;
             TrainingConfig.RemoveDuplicateParagraphs = value;
             OnPropertyChanged();
+            ClearTrainingAdvisorForField(nameof(TrainingDedupParagraphs));
         }
     }
     public bool TrainingNormalizeUnicode
@@ -977,6 +989,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             if (TrainingConfig.CollapseWhitespace == value) return;
             TrainingConfig.CollapseWhitespace = value;
             OnPropertyChanged();
+            ClearTrainingAdvisorForField(nameof(TrainingCollapseWhitespace));
         }
     }
     public bool TrainingCurriculumLearning
@@ -987,6 +1000,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             if (TrainingConfig.CurriculumLearning == value) return;
             TrainingConfig.CurriculumLearning = value;
             OnPropertyChanged();
+            ClearTrainingAdvisorForField(nameof(TrainingCurriculumLearning));
         }
     }
     public double TrainingCurriculumWarmupRatio
@@ -1992,17 +2006,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
 
         var files = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories)
-            .Where(p => p.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-                     || p.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
-                     || p.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
-                     || p.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase)
-                     || p.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            .Where(IsSupportedDatasetFile)
             .OrderBy(p => p)
             .ToList();
 
         if (files.Count == 0)
         {
-            Log = "Nessun file supportato trovato nella cartella (.txt/.md/.csv/.jsonl/.json).";
+            Log = "Nessun file supportato trovato nella cartella (.txt/.csv/.jsonl/.json).";
             return;
         }
 
@@ -2101,17 +2111,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         long words = 0;
         var unique = new HashSet<char>();
 
-        static bool IsDataFile(string p) =>
-            p.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-            || p.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
-            || p.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
-            || p.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase)
-            || p.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
-
         IEnumerable<string> files = File.Exists(sourcePath)
             ? new[] { sourcePath }
             : Directory.Exists(sourcePath)
-                ? Directory.GetFiles(sourcePath, "*.*", SearchOption.AllDirectories).Where(IsDataFile)
+                ? Directory.GetFiles(sourcePath, "*.*", SearchOption.AllDirectories).Where(IsSupportedDatasetFile)
                 : Enumerable.Empty<string>();
 
         foreach (var file in files)
@@ -2267,21 +2270,22 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (chars <= 0 && long.TryParse((DatasetCharsText ?? string.Empty).Replace(",", string.Empty), out var parsed))
             chars = parsed;
         if (chars <= 0) chars = Math.Max(0, DatasetText?.Length ?? 0);
+        var looksStructuredChat = LooksLikeStructuredChatDataset(DatasetText ?? string.Empty);
 
         var tokenizer = chars > 2_000_000 ? "ByteLevelBpe" : "SimpleBpe";
         var profile = chars switch
         {
             < 200_000 => "Tiny",
-            < 2_500_000 => "Balanced",
-            < 8_000_000 => "Serious",
+            < 8_000_000 => looksStructuredChat ? "Serious" : "Balanced",
+            < 20_000_000 => "Serious",
             _ => "Research"
         };
 
         DatasetRecommendedTokenizer = tokenizer;
         DatasetRecommendedTrainingProfile = profile;
         DatasetRecommendationsText = IsEnglish
-            ? $"Auto-analysis suggests `{tokenizer}` tokenizer and `{profile}` training profile based on dataset scale ({chars:N0} chars)."
-            : $"L'analisi automatica suggerisce tokenizer `{tokenizer}` e profilo training `{profile}` in base alla scala dataset ({chars:N0} caratteri).";
+            ? $"Auto-analysis suggests `{tokenizer}` tokenizer and `{profile}` training profile based on dataset scale ({chars:N0} chars){(looksStructuredChat ? " and structured chat format" : string.Empty)}."
+            : $"L'analisi automatica suggerisce tokenizer `{tokenizer}` e profilo training `{profile}` in base alla scala dataset ({chars:N0} caratteri){(looksStructuredChat ? " e formato chat strutturato" : string.Empty)}.";
     }
 
     private void ApplyDatasetRecommendations()
@@ -2343,6 +2347,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             TokenizerProgressValue = 35;
             var estimatedSeconds = EstimateTokenizerSeconds(datasetPayload.Length);
             var trainingPhaseText = IsEnglish ? "Training tokenizer..." : "Training tokenizer...";
+            var (progressTotalUnits, progressUnitsLabel) = GetTokenizerProgressUnits(datasetPayload);
             TokenizerProgressText = BuildTokenizerEtaText(trainingPhaseText, estimatedSeconds);
             var trainingStopwatch = Stopwatch.StartNew();
             using var estimatorCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -2353,8 +2358,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 35,
                 84,
                 trainingPhaseText,
-                datasetPayload.Length,
-                IsEnglish ? "chars" : "caratteri");
+                progressTotalUnits,
+                progressUnitsLabel);
             var tokenizerTask = Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -2591,6 +2596,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(raw))
             return new CorpusQualityGateResult(false, IsEnglish ? "empty dataset content." : "contenuto dataset vuoto.");
 
+        var taggedChat = TryAnalyzeTaggedChatQuality(raw);
+        if (taggedChat is not null)
+            return taggedChat;
+
         var lines = raw.Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Select(x => x.Trim())
             .Where(x => x.Length > 0)
@@ -2740,6 +2749,63 @@ public sealed partial class MainWindowViewModel : ObservableObject
         return new CorpusQualityGateResult(true, IsEnglish ? "quality gate passed (structured JSONL)." : "quality gate superato (JSONL strutturato).");
     }
 
+    private CorpusQualityGateResult? TryAnalyzeTaggedChatQuality(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        if (!raw.Contains("<|user|>", StringComparison.Ordinal) || !raw.Contains("<|assistant|>", StringComparison.Ordinal))
+            return null;
+
+        var pairs = new List<(string Prompt, string Response)>();
+        var cursor = 0;
+        while (pairs.Count < 50_000)
+        {
+            var u = raw.IndexOf("<|user|>", cursor, StringComparison.Ordinal);
+            if (u < 0) break;
+            var a = raw.IndexOf("<|assistant|>", u, StringComparison.Ordinal);
+            if (a < 0) break;
+
+            var promptStart = u + "<|user|>".Length;
+            var prompt = raw[promptStart..a].Trim();
+
+            var nextUser = raw.IndexOf("<|user|>", a + "<|assistant|>".Length, StringComparison.Ordinal);
+            var responseStart = a + "<|assistant|>".Length;
+            var response = (nextUser > responseStart ? raw[responseStart..nextUser] : raw[responseStart..]).Trim();
+
+            cursor = nextUser > 0 ? nextUser : raw.Length;
+            if (prompt.Length == 0 || response.Length == 0) continue;
+            pairs.Add((prompt, response));
+            if (cursor >= raw.Length) break;
+        }
+
+        if (pairs.Count < 200) return null;
+
+        var uniquePairs = pairs
+            .Select(x => x.Prompt + "\n" + x.Response)
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+        var pairUniq = uniquePairs / (double)pairs.Count;
+
+        var uniquePrompts = pairs.Select(x => x.Prompt).Distinct(StringComparer.Ordinal).Count();
+        var promptUniq = uniquePrompts / (double)pairs.Count;
+
+        if (pairUniq < 0.22 || promptUniq < 0.15)
+        {
+            var msg = IsEnglish
+                ? $"low tagged-chat uniqueness (pairs={pairUniq:P0}, prompts={promptUniq:P0}). Likely template collapse."
+                : $"unicità tagged-chat bassa (coppie={pairUniq:P0}, prompt={promptUniq:P0}). Probabile template collapse.";
+            return new CorpusQualityGateResult(false, msg);
+        }
+        if (pairUniq < 0.50 || promptUniq < 0.30)
+        {
+            var warn = IsEnglish
+                ? $"warning: tagged-chat uniqueness is moderate (pairs={pairUniq:P0}, prompts={promptUniq:P0}). Training allowed."
+                : $"avviso: unicità tagged-chat moderata (coppie={pairUniq:P0}, prompt={promptUniq:P0}). Training consentito.";
+            return new CorpusQualityGateResult(true, warn);
+        }
+
+        return new CorpusQualityGateResult(true, IsEnglish ? "quality gate passed (tagged chat)." : "quality gate superato (tagged chat).");
+    }
+
     private static int CountOccurrences(string text, string token)
     {
         if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(token)) return 0;
@@ -2788,11 +2854,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (Directory.Exists(sourcePath))
         {
             var files = Directory.GetFiles(sourcePath, "*.*", SearchOption.AllDirectories)
-                .Where(p => p.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-                         || p.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
-                         || p.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
-                         || p.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase)
-                         || p.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                .Where(IsSupportedDatasetFile)
                 .OrderBy(p => p)
                 .ToList();
             if (files.Count == 0) return string.Empty;
@@ -2823,11 +2885,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             if (Directory.Exists(_datasetExternalSourcePath))
             {
                 var files = Directory.GetFiles(_datasetExternalSourcePath, "*.*", SearchOption.AllDirectories)
-                    .Where(p => p.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-                             || p.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
-                             || p.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
-                             || p.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase)
-                             || p.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                    .Where(IsSupportedDatasetFile)
                     .OrderBy(p => p)
                     .ToList();
                 if (files.Count == 0) return fallback;
@@ -3761,7 +3819,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             "Serious" => string.Equals(TrainingConfig.Optimizer, "adamw", StringComparison.OrdinalIgnoreCase)
                          && string.Equals(TrainingConfig.Scheduler, "cosine", StringComparison.OrdinalIgnoreCase)
                          && string.Equals(TrainingConfig.Precision, "fp16", StringComparison.OrdinalIgnoreCase)
-                         && TrainingConfig.MaxSteps >= 3000,
+                         && TrainingConfig.MaxSteps >= 1800,
             "Balanced" => string.Equals(TrainingConfig.Optimizer, "adamw", StringComparison.OrdinalIgnoreCase)
                           && string.Equals(TrainingConfig.Scheduler, "cosine", StringComparison.OrdinalIgnoreCase),
             "Tiny" => TrainingConfig.MaxSteps <= 300 && string.Equals(TrainingConfig.Scheduler, "none", StringComparison.OrdinalIgnoreCase),
@@ -3787,6 +3845,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         SamplingConfig.Seed = config.Seed;
         SamplingConfig.Greedy = config.Greedy;
         SamplingConfig.MaxNewTokens = config.MaxNewTokens;
+        OnPropertyChanged(nameof(GenerationExplanation));
         OnPropertyChanged(nameof(GenerationOutputWindowText));
     }
 
@@ -3812,6 +3871,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void ApplyTrainingProfile(string profile)
     {
         GuidedDefaultsEngine.ApplyTrainingProfile(profile, TrainingConfig);
+        GuidedDefaultsEngine.ApplySamplingProfile(profile, SelectedTokenizerKind, SamplingConfig);
+        OnPropertyChanged(nameof(GenerationExplanation));
+        OnPropertyChanged(nameof(GenerationOutputWindowText));
     }
 
     private void RaiseModelTrainingBindingsChanged()
@@ -4013,6 +4075,19 @@ public sealed partial class MainWindowViewModel : ObservableObject
         if (TrainingConfig.OrchestratePipelineStages && !TrainingConfig.PipelineRunTrainStage)
             return "Pipeline orchestration is ON but Train stage is disabled. Enable train stage or disable orchestration.";
 
+        if (TrainingConfig.ExportOnnx)
+        {
+            if (!PythonBackendBridge.IsPythonAvailable(PythonPath))
+                return IsEnglish
+                    ? $"ONNX export requires a valid Python path. Current Python is unavailable: {PythonPath}"
+                    : $"Export ONNX richiede un path Python valido. Il Python corrente non è disponibile: {PythonPath}";
+
+            if (!IsPythonModuleAvailable("onnx"))
+                return IsEnglish
+                    ? "ONNX export is enabled but Python module 'onnx' is not installed in the configured backend environment. Run Setup Backend or install requirements."
+                    : "Export ONNX attivo ma modulo Python 'onnx' non installato nell'ambiente backend configurato. Esegui Setup Backend o installa i requirements.";
+        }
+
         if (!TrainingConfig.DistributedTraining) return null;
 
         var wsRaw = Environment.GetEnvironmentVariable("WORLD_SIZE");
@@ -4024,6 +4099,31 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return "Distributed mode is ON but Multi-GPU strategy is 'none'. Select 'ddp' or 'fsdp', or disable Distributed mode.";
 
         return null;
+    }
+
+    private bool IsPythonModuleAvailable(string moduleName)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(moduleName)) return false;
+            if (!PythonBackendBridge.IsPythonAvailable(PythonPath)) return false;
+
+            using var process = Process.Start(PythonBackendBridge.CreateStartInfo(
+                PythonPath,
+                "-c",
+                $"import {moduleName}"));
+            if (process is null) return false;
+            if (!process.WaitForExit(5000))
+            {
+                try { process.Kill(true); } catch { /* ignored */ }
+                return false;
+            }
+            return process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static string ResolveProjectRoot()
@@ -4801,24 +4901,37 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     private static bool IsSupportedDatasetFile(string path)
-        => path.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-           || path.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
-           || path.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
-           || path.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase)
-           || path.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
+        => !IsExcludedDatasetMetadataFile(path)
+           && (path.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
+               || path.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
+               || path.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase)
+               || path.EndsWith(".json", StringComparison.OrdinalIgnoreCase));
 
     private static bool IsProviderSupportedDatasetFile(string path)
-        => path.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-           || path.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
-           || path.EndsWith(".jsonl", StringComparison.OrdinalIgnoreCase)
-           || path.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
+        => IsSupportedDatasetFile(path);
 
     private static bool IsSupportedDatasetExtension(string ext)
         => string.Equals(ext, ".txt", StringComparison.OrdinalIgnoreCase)
-           || string.Equals(ext, ".md", StringComparison.OrdinalIgnoreCase)
            || string.Equals(ext, ".csv", StringComparison.OrdinalIgnoreCase)
            || string.Equals(ext, ".jsonl", StringComparison.OrdinalIgnoreCase)
            || string.Equals(ext, ".json", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsExcludedDatasetMetadataFile(string path)
+    {
+        var name = Path.GetFileName(path);
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        if (name.StartsWith("README", StringComparison.OrdinalIgnoreCase)) return true;
+        if (name.StartsWith("LICENSE", StringComparison.OrdinalIgnoreCase)) return true;
+        if (name.StartsWith("NOTICE", StringComparison.OrdinalIgnoreCase)) return true;
+        if (name.StartsWith("CHANGELOG", StringComparison.OrdinalIgnoreCase)) return true;
+        if (name.StartsWith("CODEOWNERS", StringComparison.OrdinalIgnoreCase)) return true;
+        return name.Equals("metadata.json", StringComparison.OrdinalIgnoreCase)
+               || name.Equals("dataset_info.json", StringComparison.OrdinalIgnoreCase)
+               || name.Equals("dataset_infos.json", StringComparison.OrdinalIgnoreCase)
+               || name.Equals("config.json", StringComparison.OrdinalIgnoreCase)
+               || name.Equals("manifest.json", StringComparison.OrdinalIgnoreCase)
+               || name.Equals("card.json", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string SanitizePathToken(string value)
     {

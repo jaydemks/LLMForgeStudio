@@ -4,7 +4,7 @@ Questa cartella contiene dataset pronti per i test in `RELEASE_VALIDATION_CHECKL
 
 ## Mapping rapido
 - Dataset 10k consigliato per conversazione (training reale):
-  - `it_chat_conversation_10k/train.jsonl`
+  - `it_chat_conversation_4k/train.jsonl`
 - Dataset 10k per test hardening/quality gate (intenzionalmente debole):
   - `it_template_collapse_hardening_10k/train.jsonl`
 - Test 1 (VAL-01/02/03):

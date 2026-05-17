@@ -47,6 +47,7 @@ public sealed partial class MainWindowViewModel
         OnPropertyChanged(nameof(ButtonLogs));
         OnPropertyChanged(nameof(ButtonGuide));
         OnPropertyChanged(nameof(ButtonTrainTokenizer));
+        OnPropertyChanged(nameof(AdvancedTrainingHeaderText));
         OnPropertyChanged(nameof(WelcomeTitle));
         OnPropertyChanged(nameof(HeaderSubtitleText));
         OnPropertyChanged(nameof(GuideTitleText));

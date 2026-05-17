@@ -163,12 +163,12 @@ public sealed partial class MainWindowViewModel
     private void NormalizeTrainingRuntimeBeforeLaunch()
     {
         var profile = (SelectedTrainingProfile ?? string.Empty).Trim();
-        if (profile.Equals("Serious", StringComparison.OrdinalIgnoreCase) && TrainingConfig.MaxSteps < 3000)
+        if (profile.Equals("Serious", StringComparison.OrdinalIgnoreCase) && TrainingConfig.MaxSteps < 1800)
         {
-            TrainingConfig.MaxSteps = 3000;
+            TrainingConfig.MaxSteps = 1800;
             Log = IsEnglish
-                ? "Serious profile safeguard: MaxSteps auto-raised to 3000 before launch."
-                : "Protezione profilo Serious: MaxSteps alzato automaticamente a 3000 prima del lancio.";
+                ? "Serious profile safeguard: MaxSteps auto-raised to 1800 before launch."
+                : "Protezione profilo Serious: MaxSteps alzato automaticamente a 1800 prima del lancio.";
             OnPropertyChanged(nameof(TrainingMaxSteps));
         }
 
@@ -251,6 +251,7 @@ public sealed partial class MainWindowViewModel
                         "Training completed successfully.",
                         new { exitCode, runDirectory = RunDirectory, modelPath, manifestPath, lastStep, hasArtifacts });
                     AutoSelectCheckpointIfAvailable();
+                    ComputeTrainingAdvisorFromLogs();
                     AddNotification("success", IsEnglish ? "Training completed" : "Training completato", TrainingStatusText);
                 }
                 else if (likelyCompleted)
@@ -265,6 +266,7 @@ public sealed partial class MainWindowViewModel
                         "Training exited with non-zero code but artifacts look valid.",
                         new { exitCode, runDirectory = RunDirectory, modelPath, manifestPath, lastStep, hasArtifacts });
                     AutoSelectCheckpointIfAvailable();
+                    ComputeTrainingAdvisorFromLogs();
                     AddNotification("warning", IsEnglish ? "Training completed with warning" : "Training completato con avviso", TrainingStatusText);
                 }
                 else
@@ -274,6 +276,7 @@ public sealed partial class MainWindowViewModel
                     var normalizedErr = TryNormalizeBackendError(compactErr);
                     TrainingStatusText = $"Training failed (exit code {exitCode}).";
                     Log = $"Training failed (exit code {exitCode}).\nBackend output:\n{normalizedErr}";
+                    ClearAllTrainingAdvisor();
                     _ = _uiDebugLogger.WriteAsync(
                         ResolveRunDirectoryForDebug(),
                         "training.completed.failed",
@@ -463,6 +466,7 @@ public sealed partial class MainWindowViewModel
             {
                 "DATASET_EMPTY" => "Dataset appears empty after cleaning/loading. Re-import dataset and re-run merge/validate.",
                 "TRAIN_WINDOW_INVALID" => "Dataset token window is too short for current configuration. Reduce block size or use a larger dataset.",
+                "TOKENIZER_STATE_REQUIRED" => "Selected tokenizer state is missing/invalid. Run Tokenization first, then retry Training.",
                 _ => "Check backend logs and training configuration."
             };
             return $"[{code}] {msg}\nHint: {hint}";

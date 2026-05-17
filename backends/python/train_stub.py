@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import time
+from typing import Optional
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from eval_suite import run_eval_suite
 
 ERROR_DATASET_EMPTY = "DATASET_EMPTY"
 ERROR_TRAIN_WINDOW_INVALID = "TRAIN_WINDOW_INVALID"
+ERROR_TOKENIZER_STATE_REQUIRED = "TOKENIZER_STATE_REQUIRED"
 ERROR_RUNTIME_EXCEPTION = "RUNTIME_EXCEPTION"
 
 
@@ -103,10 +105,22 @@ def write_export_artifacts(out_dir: Path, model, cfg, tcfg: dict):
             result["onnx_path"] = str(onnx_path)
             result["onnx_status"] = "exported"
         except Exception as ex:
-            failure_path = out_dir / "model.onnx.export_error.txt"
-            failure_path.write_text(str(ex), encoding="utf-8")
-            result["onnx_status"] = "failed"
-            result["onnx_path"] = str(failure_path)
+            msg = str(ex)
+            lowered = msg.lower()
+            if "module onnx is not installed" in lowered or "no module named 'onnx'" in lowered:
+                note_path = out_dir / "model.onnx.skipped.txt"
+                note_path.write_text(
+                    "ONNX export skipped: python module 'onnx' is not installed in backend environment.\n"
+                    "Install optional dependency and retry if you need ONNX artifacts.",
+                    encoding="utf-8",
+                )
+                result["onnx_status"] = "skipped_missing_dependency"
+                result["onnx_path"] = str(note_path)
+            else:
+                failure_path = out_dir / "model.onnx.export_error.txt"
+                failure_path.write_text(msg, encoding="utf-8")
+                result["onnx_status"] = "failed"
+                result["onnx_path"] = str(failure_path)
 
     if export_gguf:
         gguf_model_path = out_dir / "model.gguf"
@@ -243,6 +257,65 @@ def encode(text: str, stoi):
     return [stoi[ch] for ch in text if ch in stoi]
 
 
+def try_load_ui_tokenization_state(out_dir: Path):
+    """
+    If UI tokenization state exists, prefer it over char-level fallback so backend
+    training really follows the selected tokenizer pipeline (BPE/WordPiece/etc.).
+    """
+    state_path = out_dir / "tokenization_state.json"
+    if not state_path.exists():
+        return None
+
+    try:
+        payload = json.loads(state_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+    token_ids = payload.get("TokenIds") or payload.get("tokenIds") or []
+    vocab = payload.get("Vocabulary") or payload.get("vocabulary") or []
+    if not isinstance(token_ids, list) or not isinstance(vocab, list):
+        return None
+    if len(token_ids) == 0 or len(vocab) < 2:
+        return None
+
+    stoi = {}
+    itos = {}
+    for item in vocab:
+        if not isinstance(item, dict):
+            continue
+        try:
+            tid = int(item.get("Id"))
+            tok = str(item.get("Token", ""))
+        except Exception:
+            continue
+        if not tok:
+            continue
+        stoi[tok] = tid
+        itos[tid] = tok
+
+    if len(stoi) < 2:
+        return None
+
+    max_id = max(stoi.values())
+    safe_ids = []
+    for x in token_ids:
+        try:
+            v = int(x)
+        except Exception:
+            continue
+        if 0 <= v <= max_id:
+            safe_ids.append(v)
+
+    if len(safe_ids) < 16:
+        return None
+
+    return {
+        "token_ids": safe_ids,
+        "stoi": stoi,
+        "itos": itos,
+    }
+
+
 def get_batch(data, block_size, batch_size, device):
     n = int(len(data))
     if n < 3:
@@ -333,8 +406,22 @@ def main():
     if not text or not text.strip():
         raise RuntimeError(f"{ERROR_DATASET_EMPTY}: dataset text empty after loading/cleaning")
 
-    stoi, itos = build_char_tokenizer(text)
-    ids = encode(text, stoi)
+    ui_tok = try_load_ui_tokenization_state(out)
+    if ui_tok is None:
+        raise RuntimeError(
+            f"{ERROR_TOKENIZER_STATE_REQUIRED}: tokenization_state.json is missing/invalid. "
+            "Run Tokenization first and ensure state is saved before training."
+        )
+
+    stoi = ui_tok["stoi"]
+    itos = ui_tok["itos"]
+    ids = ui_tok["token_ids"]
+    print(json.dumps({
+        "event": "using_ui_tokenization_state",
+        "token_count": len(ids),
+        "vocab_size": len(stoi),
+        "path": str(out / "tokenization_state.json"),
+    }), flush=True)
     if len(ids) < 2048:
         ids = ids * (2048 // max(1, len(ids)) + 1)
 
@@ -464,7 +551,8 @@ def main():
     manifest_path = out / "checkpoint_manifest.json"
 
     torch.save({"model_state": model.state_dict(), "config": cfg.__dict__}, model_path)
-    tokenizer_path.write_text(json.dumps({"type": "char", "stoi": stoi, "itos": {str(k): v for k, v in itos.items()}}, indent=2), encoding="utf-8")
+    tokenizer_type = "ui-tokenizer-state" if ui_tok is not None else "char"
+    tokenizer_path.write_text(json.dumps({"type": tokenizer_type, "stoi": stoi, "itos": {str(k): v for k, v in itos.items()}}, indent=2), encoding="utf-8")
 
     quantized_path, quant_meta = maybe_quantize_dynamic(model, out / "model_int8.pt", tcfg, device if isinstance(device, str) else "cpu")
     qat_meta = maybe_run_qat_foundation(out, tcfg)

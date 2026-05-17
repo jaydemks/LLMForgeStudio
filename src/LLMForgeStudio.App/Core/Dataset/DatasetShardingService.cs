@@ -13,7 +13,6 @@ public static class DatasetShardingService
 
         var files = Directory.GetFiles(folderPath, "*.*", SearchOption.TopDirectoryOnly)
             .Where(p => p.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-                     || p.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
                      || p.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
             .OrderBy(p => p)
             .ToList();

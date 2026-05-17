@@ -195,6 +195,42 @@ public sealed partial class MainWindowViewModel
         _tokenizerCts?.Cancel();
     }
 
+    private (int TotalUnits, string UnitsLabel) GetTokenizerProgressUnits(string datasetText)
+    {
+        if (string.IsNullOrEmpty(datasetText))
+            return (0, IsEnglish ? "units" : "unità");
+
+        return SelectedTokenizerKind switch
+        {
+            TokenizerKind.Character => (datasetText.Length, IsEnglish ? "chars" : "caratteri"),
+            TokenizerKind.ByteLevelBpe => (System.Text.Encoding.UTF8.GetByteCount(datasetText), IsEnglish ? "bytes" : "byte"),
+            TokenizerKind.Word => (CountWords(datasetText), IsEnglish ? "words" : "parole"),
+            TokenizerKind.SimpleBpe => (CountSimpleBpeSymbols(datasetText), IsEnglish ? "symbols" : "simboli"),
+            TokenizerKind.HybridFallback => (CountSimpleBpeSymbols(datasetText), IsEnglish ? "symbols" : "simboli"),
+            TokenizerKind.Unigram => (CountWords(datasetText), IsEnglish ? "words" : "parole"),
+            TokenizerKind.WordPiece => (CountWords(datasetText), IsEnglish ? "words" : "parole"),
+            TokenizerKind.HierarchicalExperimental => (datasetText.Length, IsEnglish ? "chars" : "caratteri"),
+            _ => (datasetText.Length, IsEnglish ? "chars" : "caratteri")
+        };
+    }
+
+    private static int CountWords(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return 0;
+        return text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+
+    private static int CountSimpleBpeSymbols(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return 0;
+        var words = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        // SimpleBPE starts from per-word chars plus </w> boundary symbol.
+        var symbols = 0;
+        foreach (var w in words)
+            symbols += w.Length + 1;
+        return Math.Max(1, symbols);
+    }
+
     private sealed class TokenizationState
     {
         public List<int> TokenIds { get; set; } = new();
