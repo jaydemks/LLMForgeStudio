@@ -21,12 +21,6 @@ Even with guided defaults and built-in automation, high-quality model outcomes a
 - Total files (project scope): `195`
 - Total lines (absolute, all text files in scope): `40,725`
 
-Counting note:
-- Scope includes `samples/`.
-- Scope excludes runtime/build/output folders such as `.git`, `bin`, `obj`, `runs`, `.venv`, `.vs`, and common output directories (`publish`, `artifacts`, `dist`, `out`).
-- “Absolute lines” counts all physical lines across text files in scope.
-- “Manual/editable lines” excludes files detected as auto-generated.
-- “Auto-generated lines” includes files marked by common generated-code signals (filename markers such as `.g.cs` / `.Designer.cs` or auto-generated headers). In current scoped tree, this count is `0`.
 
 ## What Is LLM Forge Studio
 
