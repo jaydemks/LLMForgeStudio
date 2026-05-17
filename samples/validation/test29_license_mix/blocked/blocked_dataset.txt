@@ -1,0 +1,2 @@
+Questo dataset simula una sorgente da marcare come non consentita.
+Usalo per verificare il blocco merge quando IsLicensePermitted=false.

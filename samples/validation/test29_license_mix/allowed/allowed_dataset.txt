@@ -1,0 +1,2 @@
+Questo dataset locale è da considerare consentito per test manuale.
+Contenuto neutro per test merge compliance.

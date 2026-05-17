@@ -4,18 +4,20 @@
              RequestedThemeVariant="Dark">
   <Application.Styles>
     <FluentTheme />
+
     <Style Selector="Window:dark">
-      <Setter Property="Background" Value="#0B0F14"/>
+      <Setter Property="Background" Value="#141618"/>
     </Style>
     <Style Selector="Window:light">
-      <Setter Property="Background" Value="#F8FAFC"/>
+      <Setter Property="Background" Value="#EAF2FF"/>
     </Style>
+
     <Style Selector="TextBlock:dark">
-      <Setter Property="Foreground" Value="#E5E7EB"/>
+      <Setter Property="Foreground" Value="#ECEFF3"/>
       <Setter Property="FontSize" Value="13"/>
     </Style>
     <Style Selector="TextBlock:light">
-      <Setter Property="Foreground" Value="#0F172A"/>
+      <Setter Property="Foreground" Value="#0F1B2E"/>
       <Setter Property="FontSize" Value="13"/>
     </Style>
     <Style Selector="TextBlock.h1">
@@ -27,96 +29,263 @@
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style Selector="TextBlock.muted:dark">
-      <Setter Property="Foreground" Value="#94A3B8"/>
+      <Setter Property="Foreground" Value="#A6AFBA"/>
     </Style>
     <Style Selector="TextBlock.muted:light">
-      <Setter Property="Foreground" Value="#475569"/>
+      <Setter Property="Foreground" Value="#486382"/>
     </Style>
-    <Style Selector="Border.card:dark">
-      <Setter Property="Background" Value="#111827"/>
-      <Setter Property="BorderBrush" Value="#233044"/>
+
+    <!-- Explicit hard glass classes (used directly by MainWindow) -->
+    <Style Selector="Border.glassTopbar">
+      <Setter Property="Background" Value="#CC1A1D21"/>
+      <Setter Property="BorderBrush" Value="#40444C"/>
+      <Setter Property="BorderThickness" Value="0,0,0,1"/>
+      <Setter Property="CornerRadius" Value="0,0,20,20"/>
+      <Setter Property="BoxShadow" Value="0 8 22 0 #33000000"/>
+    </Style>
+    <Style Selector="Border.glassShell">
+      <Setter Property="Background" Value="#B31E2227"/>
+      <Setter Property="BorderBrush" Value="#3E454F"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="28"/>
+      <Setter Property="BoxShadow" Value="0 14 28 0 #48000000"/>
+    </Style>
+    <Style Selector="Border.glassFooter">
+      <Setter Property="Background" Value="#CC171A1E"/>
+      <Setter Property="BorderBrush" Value="#3A4048"/>
+      <Setter Property="BorderThickness" Value="1,1,1,0"/>
+      <Setter Property="CornerRadius" Value="18,18,0,0"/>
+      <Setter Property="BoxShadow" Value="0 -6 16 0 #2A000000"/>
+    </Style>
+    <Style Selector="Border.glassCard">
+      <Setter Property="Background" Value="#CC20242A"/>
+      <Setter Property="BorderBrush" Value="#4A515B"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="26"/>
+      <Setter Property="Padding" Value="22"/>
+      <Setter Property="Margin" Value="0,0,0,16"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="BoxShadow" Value="0 10 24 0 #42000000"/>
+    </Style>
+    <Style Selector="Border.glassPanel">
+      <Setter Property="Background" Value="#CC262B32"/>
+      <Setter Property="BorderBrush" Value="#4B535E"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="18"/>
-      <Setter Property="Padding" Value="18"/>
+      <Setter Property="Padding" Value="12"/>
       <Setter Property="Margin" Value="0,0,0,8"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="BoxShadow" Value="0 6 16 0 #30000000"/>
+    </Style>
+
+    <Style Selector="Border.topbar:dark">
+      <Setter Property="Background" Value="#A0122B4D"/>
+      <Setter Property="BorderBrush" Value="#6E9DE0"/>
+      <Setter Property="BorderThickness" Value="0,0,0,1"/>
+      <Setter Property="CornerRadius" Value="0,0,18,18"/>
+    </Style>
+    <Style Selector="Border.topbar:light">
+      <Setter Property="Background" Value="#BFE7F6FF"/>
+      <Setter Property="BorderBrush" Value="#8CAFE0"/>
+      <Setter Property="BorderThickness" Value="0,0,0,1"/>
+      <Setter Property="CornerRadius" Value="0,0,18,18"/>
+    </Style>
+
+    <Style Selector="Border.shell:dark">
+      <Setter Property="Background" Value="#7D152742"/>
+      <Setter Property="BorderBrush" Value="#7FAFEFFF"/>
+      <Setter Property="BorderThickness" Value="1.4"/>
+      <Setter Property="CornerRadius" Value="26"/>
+      <Setter Property="BoxShadow" Value="0 18 42 0 #59000000"/>
+    </Style>
+    <Style Selector="Border.shell:light">
+      <Setter Property="Background" Value="#CFF7FDFF"/>
+      <Setter Property="BorderBrush" Value="#95BDE8"/>
+      <Setter Property="BorderThickness" Value="1.4"/>
+      <Setter Property="CornerRadius" Value="26"/>
+      <Setter Property="BoxShadow" Value="0 14 30 0 #2E000000"/>
+    </Style>
+
+    <Style Selector="Border.footerbar:dark">
+      <Setter Property="Background" Value="#91102138"/>
+      <Setter Property="BorderBrush" Value="#6795D2"/>
+      <Setter Property="BorderThickness" Value="1,1,1,0"/>
+      <Setter Property="CornerRadius" Value="18,18,0,0"/>
+      <Setter Property="BoxShadow" Value="0 -6 18 0 #28000000"/>
+    </Style>
+    <Style Selector="Border.footerbar:light">
+      <Setter Property="Background" Value="#CCEEFBFF"/>
+      <Setter Property="BorderBrush" Value="#8FB2DE"/>
+      <Setter Property="BorderThickness" Value="1,1,1,0"/>
+      <Setter Property="CornerRadius" Value="18,18,0,0"/>
+      <Setter Property="BoxShadow" Value="0 -4 14 0 #18000000"/>
+    </Style>
+
+    <Style Selector="Border.card:dark">
+      <Setter Property="Background" Value="#8A1B3558"/>
+      <Setter Property="BorderBrush" Value="#9CC5FA"/>
+      <Setter Property="BorderThickness" Value="1.6"/>
+      <Setter Property="CornerRadius" Value="24"/>
+      <Setter Property="Padding" Value="20"/>
+      <Setter Property="Margin" Value="0,0,0,14"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="BoxShadow" Value="0 20 44 0 #56000000"/>
     </Style>
     <Style Selector="Border.card:light">
-      <Setter Property="Background" Value="#FFFFFF"/>
-      <Setter Property="BorderBrush" Value="#CBD5E1"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="18"/>
-      <Setter Property="Padding" Value="18"/>
-      <Setter Property="Margin" Value="0,0,0,8"/>
+      <Setter Property="Background" Value="#D9FFFFFF"/>
+      <Setter Property="BorderBrush" Value="#89B2E3"/>
+      <Setter Property="BorderThickness" Value="1.6"/>
+      <Setter Property="CornerRadius" Value="24"/>
+      <Setter Property="Padding" Value="20"/>
+      <Setter Property="Margin" Value="0,0,0,14"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="BoxShadow" Value="0 14 30 0 #2E000000"/>
     </Style>
+
     <Style Selector="Border.glass:dark">
-      <Setter Property="Background" Value="#66303F63"/>
-      <Setter Property="BorderBrush" Value="#99A5B4FC"/>
-      <Setter Property="BorderThickness" Value="1.5"/>
-      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="Background" Value="#7A24436C"/>
+      <Setter Property="BorderBrush" Value="#9AC4FA"/>
+      <Setter Property="BorderThickness" Value="1.3"/>
+      <Setter Property="CornerRadius" Value="18"/>
       <Setter Property="Padding" Value="12"/>
       <Setter Property="Margin" Value="0,0,0,8"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
-      <Setter Property="BoxShadow" Value="0 10 26 0 #40000000"/>
+      <Setter Property="BoxShadow" Value="0 10 24 0 #3E000000"/>
     </Style>
     <Style Selector="Border.glass:light">
-      <Setter Property="Background" Value="#CCF0F6FF"/>
-      <Setter Property="BorderBrush" Value="#A37B7DD3"/>
-      <Setter Property="BorderThickness" Value="1.5"/>
-      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="Background" Value="#D8F4FCFF"/>
+      <Setter Property="BorderBrush" Value="#90B9E6"/>
+      <Setter Property="BorderThickness" Value="1.3"/>
+      <Setter Property="CornerRadius" Value="18"/>
       <Setter Property="Padding" Value="12"/>
       <Setter Property="Margin" Value="0,0,0,8"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
-      <Setter Property="BoxShadow" Value="0 8 22 0 #26000000"/>
+      <Setter Property="BoxShadow" Value="0 8 20 0 #24000000"/>
     </Style>
+
     <Style Selector="Border.wizardbubble:dark">
-      <Setter Property="Background" Value="#4D1E293B"/>
-      <Setter Property="BorderBrush" Value="#7D60A5FA"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Background" Value="#8C213A5E"/>
+      <Setter Property="BorderBrush" Value="#8FB8EF"/>
+      <Setter Property="BorderThickness" Value="1.2"/>
+      <Setter Property="CornerRadius" Value="14"/>
       <Setter Property="Padding" Value="10,8"/>
       <Setter Property="Margin" Value="0,0,0,6"/>
-      <Setter Property="HorizontalAlignment" Value="Stretch"/>
     </Style>
     <Style Selector="Border.wizardbubble:light">
-      <Setter Property="Background" Value="#EAF3FF"/>
-      <Setter Property="BorderBrush" Value="#94A3B8"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Background" Value="#D9ECF8FF"/>
+      <Setter Property="BorderBrush" Value="#8FB3DF"/>
+      <Setter Property="BorderThickness" Value="1.2"/>
+      <Setter Property="CornerRadius" Value="14"/>
       <Setter Property="Padding" Value="10,8"/>
       <Setter Property="Margin" Value="0,0,0,6"/>
-      <Setter Property="HorizontalAlignment" Value="Stretch"/>
     </Style>
+
     <Style Selector="Button:dark">
-      <Setter Property="Background" Value="#1F2937"/>
-      <Setter Property="Foreground" Value="#F8FAFC"/>
-      <Setter Property="BorderBrush" Value="#334155"/>
+      <Setter Property="Background" Value="#FF2A2F36"/>
+      <Setter Property="Foreground" Value="#ECEFF4"/>
+      <Setter Property="BorderBrush" Value="#4E5662"/>
+      <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="10"/>
-      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="Padding" Value="13,9"/>
     </Style>
     <Style Selector="Button:light">
-      <Setter Property="Background" Value="#E2E8F0"/>
-      <Setter Property="Foreground" Value="#0F172A"/>
-      <Setter Property="BorderBrush" Value="#94A3B8"/>
-      <Setter Property="CornerRadius" Value="10"/>
-      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="Background" Value="#CCF2FAFF"/>
+      <Setter Property="Foreground" Value="#10233C"/>
+      <Setter Property="BorderBrush" Value="#8CB1DE"/>
+      <Setter Property="BorderThickness" Value="1.2"/>
+      <Setter Property="CornerRadius" Value="14"/>
+      <Setter Property="Padding" Value="13,9"/>
     </Style>
     <Style Selector="Button.primary">
-      <Setter Property="Background" Value="#2563EB"/>
-      <Setter Property="BorderBrush" Value="#3B82F6"/>
+      <Setter Property="Background" Value="#3B82F6"/>
+      <Setter Property="BorderBrush" Value="#60A5FA"/>
+      <Setter Property="Foreground" Value="#FFFFFF"/>
     </Style>
+    <Style Selector="Button:dark:pointerover">
+      <Setter Property="Background" Value="#FF323842"/>
+      <Setter Property="BorderBrush" Value="#6A7380"/>
+    </Style>
+    <Style Selector="Button:light:pointerover">
+      <Setter Property="Background" Value="#E4F6FF"/>
+      <Setter Property="BorderBrush" Value="#6FA1DB"/>
+    </Style>
+    <Style Selector="Button:pressed">
+      <Setter Property="Opacity" Value="0.9"/>
+    </Style>
+    <Style Selector="Button:disabled">
+      <Setter Property="Opacity" Value="0.5"/>
+    </Style>
+
     <Style Selector="TextBox:dark, ComboBox:dark, NumericUpDown:dark">
-      <Setter Property="Background" Value="#0F172A"/>
-      <Setter Property="Foreground" Value="#E5E7EB"/>
-      <Setter Property="BorderBrush" Value="#334155"/>
+      <Setter Property="Background" Value="#FF1E2228"/>
+      <Setter Property="Foreground" Value="#EEF2F7"/>
+      <Setter Property="BorderBrush" Value="#4D5560"/>
+      <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="10"/>
     </Style>
     <Style Selector="TextBox:light, ComboBox:light, NumericUpDown:light">
-      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="Background" Value="#EEFFFFFF"/>
       <Setter Property="Foreground" Value="#0F172A"/>
-      <Setter Property="BorderBrush" Value="#94A3B8"/>
+      <Setter Property="BorderBrush" Value="#8FB4DF"/>
+      <Setter Property="BorderThickness" Value="1.2"/>
+      <Setter Property="CornerRadius" Value="13"/>
+    </Style>
+    <Style Selector="TextBox:focus, ComboBox:focus, NumericUpDown:focus">
+      <Setter Property="BorderBrush" Value="#60A5FA"/>
+    </Style>
+
+    <Style Selector="ListBoxItem:dark">
       <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="11,9"/>
+      <Setter Property="Margin" Value="0,3,0,3"/>
+      <Setter Property="Background" Value="#00000000"/>
+      <Setter Property="Foreground" Value="#E7ECF3"/>
+    </Style>
+    <Style Selector="ListBoxItem:light">
+      <Setter Property="CornerRadius" Value="13"/>
+      <Setter Property="Padding" Value="11,9"/>
+      <Setter Property="Margin" Value="0,3,0,3"/>
+      <Setter Property="Background" Value="#00000000"/>
+      <Setter Property="Foreground" Value="#193156"/>
+    </Style>
+    <Style Selector="ListBoxItem:dark:pointerover">
+      <Setter Property="Background" Value="#AA2C323A"/>
+    </Style>
+    <Style Selector="ListBoxItem:light:pointerover">
+      <Setter Property="Background" Value="#DDF1FFFF"/>
+    </Style>
+    <Style Selector="ListBoxItem:dark:selected">
+      <Setter Property="Background" Value="#3B82F6"/>
+      <Setter Property="BorderBrush" Value="#60A5FA"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Foreground" Value="#FFFFFF"/>
+    </Style>
+    <Style Selector="ListBoxItem:light:selected">
+      <Setter Property="Background" Value="#BEE7FF"/>
+      <Setter Property="BorderBrush" Value="#3D84D8"/>
+      <Setter Property="BorderThickness" Value="1.4"/>
+      <Setter Property="Foreground" Value="#0F2A49"/>
+    </Style>
+
+    <Style Selector="DataGrid:dark">
+      <Setter Property="Background" Value="#8B11213B"/>
+      <Setter Property="BorderBrush" Value="#7FA8DB"/>
+      <Setter Property="BorderThickness" Value="1.2"/>
+      <Setter Property="CornerRadius" Value="14"/>
+    </Style>
+    <Style Selector="DataGrid:light">
+      <Setter Property="Background" Value="#EFFFFFFF"/>
+      <Setter Property="BorderBrush" Value="#92B5DE"/>
+      <Setter Property="BorderThickness" Value="1.2"/>
+      <Setter Property="CornerRadius" Value="14"/>
+    </Style>
+    <Style Selector="ProgressBar:dark">
+      <Setter Property="Background" Value="#86203E62"/>
+      <Setter Property="Foreground" Value="#56A0FF"/>
+    </Style>
+    <Style Selector="ProgressBar:light">
+      <Setter Property="Background" Value="#CFE5F9"/>
+      <Setter Property="Foreground" Value="#2A6DEB"/>
     </Style>
   </Application.Styles>
 </Application>

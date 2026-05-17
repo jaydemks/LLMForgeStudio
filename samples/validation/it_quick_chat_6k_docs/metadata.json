@@ -1,0 +1,13 @@
+{
+  "name": "it_quick_chat_6k",
+  "rows": 6000,
+  "format": "jsonl",
+  "schema": [
+    "id",
+    "lang",
+    "prompt",
+    "response"
+  ],
+  "license": "MIT-compatible synthetic sample for local testing",
+  "notes": "Synthetic Italian prompt-response dataset generated locally for pipeline validation."
+}

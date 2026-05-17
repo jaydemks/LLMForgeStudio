@@ -8,28 +8,55 @@
         Width="1320" Height="840"
         MinWidth="1100" MinHeight="720"
         Title="LLM Forge Studio">
-  <Grid ColumnDefinitions="260,*" RowDefinitions="Auto,*" ClipToBounds="True">
-    <Border Grid.ColumnSpan="2" Background="{Binding HeaderBackground}" BorderBrush="{Binding DividerBrush}" BorderThickness="0,0,0,1" Padding="22,16">
+  <Grid ColumnDefinitions="280,*" RowDefinitions="Auto,*,Auto" ClipToBounds="True">
+    <Border Grid.RowSpan="3" Grid.ColumnSpan="2">
+      <Border.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+          <GradientStop Color="#07111F" Offset="0"/>
+          <GradientStop Color="#0B1F3A" Offset="0.45"/>
+          <GradientStop Color="#132D52" Offset="1"/>
+        </LinearGradientBrush>
+      </Border.Background>
+    </Border>
+    <Border Grid.RowSpan="3" Grid.ColumnSpan="2"
+            Width="420" Height="420"
+            HorizontalAlignment="Left" VerticalAlignment="Top"
+            Margin="-120,-120,0,0"
+            Background="#2A4CA3FF"
+            Opacity="0.22"
+            CornerRadius="210"/>
+    <Border Grid.RowSpan="3" Grid.ColumnSpan="2"
+            Width="460" Height="460"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+            Margin="0,0,-140,-180"
+            Background="#2A42E8D4"
+            Opacity="0.20"
+            CornerRadius="230"/>
+    <Border Grid.ColumnSpan="2" Classes="glassTopbar" Background="{Binding HeaderBackground}" Padding="18,12">
       <DockPanel>
         <StackPanel DockPanel.Dock="Left">
           <TextBlock Classes="h1" Text="LLM Forge Studio" />
           <TextBlock Classes="muted" Text="{Binding HeaderSubtitleText}" />
         </StackPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-          <Button Content="⚙" Command="{Binding ToggleSettingsCommand}" ToolTip.Tip="Settings" />
-          <Button Content="{Binding ButtonGuide}" Command="{Binding OpenGuideCommand}" ToolTip.Tip="Apri la guida step-by-step del workflow." />
-          <Button Content="{Binding ButtonLoadProject}" Click="OnLoadProjectClick" ToolTip.Tip="Carica un progetto .llmforge.json e ripristina configurazioni, dataset e stato UI." />
-          <Button Content="{Binding ButtonSaveProject}" Click="OnSaveProjectClick" ToolTip.Tip="Salva tutte le impostazioni correnti in un file progetto riapribile." />
+          <Button Content="🔔" Command="{Binding ToggleNotificationsCommand}" ToolTip.Tip="Open notifications center / Apri centro notifiche." />
+          <Button Content="🪵" Command="{Binding ToggleLogsCommand}" ToolTip.Tip="Open runtime logging console overlay / Apri console log runtime." />
+          <Button Content="📂" Click="OnLoadProjectClick" ToolTip.Tip="Load project (.llmforge.json) / Carica progetto (.llmforge.json)." />
+          <Button Content="💾" Click="OnSaveProjectClick" ToolTip.Tip="Save current project / Salva progetto corrente." />
+          <Button Content="📘" Command="{Binding OpenGuideCommand}" ToolTip.Tip="Open step-by-step workflow guide / Apri guida step-by-step workflow." />
+          <Button Content="⚙" Command="{Binding ToggleSettingsCommand}" ToolTip.Tip="Settings / Impostazioni." />
         </StackPanel>
       </DockPanel>
     </Border>
 
-    <Border Grid.Row="1" Grid.Column="0" Background="{Binding SidebarBackground}" BorderBrush="{Binding DividerBrush}" BorderThickness="0,0,1,0" Padding="16">
+    <Border Grid.Row="1" Grid.Column="0" Classes="glassShell" Background="{Binding SidebarBackground}" BorderBrush="{Binding DividerBrush}" BorderThickness="0,0,1,0" Padding="16" Margin="12,12,8,8">
       <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="10">
         <TextBlock Grid.Row="0" Classes="muted" Text="{Binding SectionWorkflowText}" />
-        <ListBox Grid.Row="1" ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}" Background="Transparent" BorderThickness="0" />
+        <Border Grid.Row="1" Classes="glassPanel" Padding="8">
+          <ListBox ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}" Background="Transparent" BorderThickness="0" />
+        </Border>
 
-        <Border Grid.Row="2" Classes="glass" Padding="10">
+        <Border Grid.Row="2" Classes="glassPanel" Padding="10">
           <StackPanel Spacing="6">
             <TextBlock Classes="muted" Text="Training Readiness" />
             <TextBlock Classes="muted" Text="{Binding TokenizerStatusText}" TextWrapping="Wrap" />
@@ -38,7 +65,7 @@
           </StackPanel>
         </Border>
 
-        <Border Grid.Row="4" Classes="card" Padding="10">
+        <Border Grid.Row="4" Classes="glassCard" Padding="10">
           <StackPanel Spacing="8">
             <TextBlock Classes="muted" Text="Performance" />
             <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6">
@@ -59,7 +86,7 @@
 
               <Grid Grid.Row="3" Grid.Column="0">
                 <ProgressBar Minimum="0" Maximum="100" Value="{Binding DiskUsage}" Height="18" />
-                <TextBlock Text="{Binding DiskUsageText, StringFormat=DISK {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="10" />
+                <TextBlock Text="{Binding DiskUsageText, StringFormat=DISK I/O {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="10" />
               </Grid>
             </Grid>
           </StackPanel>
@@ -68,53 +95,197 @@
       </Grid>
     </Border>
 
-    <ScrollViewer Grid.Row="1" Grid.Column="1" Padding="22" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel Spacing="2" HorizontalAlignment="Stretch" ClipToBounds="True">
-        <Border Classes="card" IsVisible="{Binding IsHardwareSection}">
-          <StackPanel Spacing="10">
+    <Border Grid.Row="1" Grid.Column="1" Classes="glassShell" Margin="8,12,12,8" Padding="0">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="14" HorizontalAlignment="Stretch" Margin="22,22,22,28">
+        <Border Classes="glassCard" IsVisible="{Binding IsHardwareSection}">
+          <StackPanel Spacing="12">
             <TextBlock Classes="h2" Text="Hardware" />
-            <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding HardwareAutoDetectText}" />
-            <TextBlock Text="{Binding HardwareCpuText}" />
-            <TextBlock Text="{Binding HardwareRamText}" />
-            <TextBlock Text="{Binding HardwareOsText}" />
-            <TextBlock Text="{Binding HardwareBackendText}" />
-            <ItemsControl ItemsSource="{Binding HardwareGpus}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <TextBlock Classes="muted" Text="{Binding StringFormat=GPU: {0}}" />
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <TextBlock VerticalAlignment="Center" Text="Force CPU training" />
-              <ToggleSwitch IsChecked="{Binding TrainingForceCpu}" />
-            </StackPanel>
-            <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding HardwareNotesText}" />
-            <TextBlock Classes="muted" Text="{Binding BackendStatusText}" />
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <Button Content="Setup Backend" Command="{Binding SetupBackendCommand}" ToolTip.Tip="Configura automaticamente Python backend e pacchetti ottimali (NVIDIA/AMD/CPU)." />
-            </StackPanel>
-            <ProgressBar IsVisible="{Binding IsBackendBusy}" Minimum="0" Maximum="100" Value="{Binding BackendSetupProgress}" Height="10" />
-            <TextBlock IsVisible="{Binding IsBackendBusy}" Classes="muted" Text="{Binding BackendSetupStage}" />
-            <TextBlock IsVisible="{Binding IsBackendBusy}" Classes="muted" Text="{Binding BackendSetupProgress, StringFormat=Setup progress: {0}%}" />
+
+            <Border Classes="glassPanel">
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding HardwareAutoDetectText}" />
+            </Border>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+              <Border Grid.Column="0" Classes="glassPanel">
+                <StackPanel Spacing="4">
+                  <TextBlock Text="{Binding HardwareCpuText}" />
+                  <TextBlock Text="{Binding HardwareRamText}" />
+                  <TextBlock Text="{Binding HardwareOsText}" />
+                  <TextBlock Text="{Binding HardwareBackendText}" />
+                </StackPanel>
+              </Border>
+              <Border Grid.Column="1" Classes="glassPanel">
+                <StackPanel Spacing="4">
+                  <TextBlock Classes="muted" Text="Detected GPUs" />
+                  <ItemsControl ItemsSource="{Binding HardwareGpus}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Classes="muted" Text="{Binding StringFormat=GPU: {0}}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+            </Grid>
+
+            <Border Classes="glassPanel">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock VerticalAlignment="Center" Text="Force CPU training" />
+                <ToggleSwitch IsChecked="{Binding TrainingForceCpu}" />
+              </StackPanel>
+            </Border>
+
+            <Border Classes="glassPanel">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding HardwareNotesText}" />
+                <TextBlock Classes="muted" Text="{Binding BackendStatusText}" />
+                <Button Content="Setup Backend" Command="{Binding SetupBackendCommand}" ToolTip.Tip="Configura automaticamente Python backend e pacchetti ottimali (NVIDIA/AMD/CPU)." />
+                <ProgressBar IsVisible="{Binding IsBackendBusy}" Minimum="0" Maximum="100" Value="{Binding BackendSetupProgress}" Height="10" />
+                <TextBlock IsVisible="{Binding IsBackendBusy}" Classes="muted" Text="{Binding BackendSetupStage}" />
+                <TextBlock IsVisible="{Binding IsBackendBusy}" Classes="muted" Text="{Binding BackendSetupProgress, StringFormat=Setup progress: {0}%}" />
+              </StackPanel>
+            </Border>
           </StackPanel>
         </Border>
 
-        <Border Classes="card" IsVisible="{Binding IsDatasetSection}">
+        <Border Classes="glassCard" IsVisible="{Binding IsDatasetSection}">
           <StackPanel Spacing="10">
             <TextBlock Classes="h2" Text="Dataset" />
             <TextBlock Classes="muted" Text="{Binding DatasetHelpText}" />
-            <StackPanel Orientation="Horizontal" Spacing="8">
+            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
               <Button Content="Import Dataset" Click="OnImportDatasetClick" ToolTip.Tip="Importa un file .txt/.md/.csv, applica la pulizia configurata e aggiorna le statistiche dataset." />
-              <Button Content="Import Folder" Click="OnImportDatasetFolderClick" ToolTip.Tip="Importa una cartella e unisce tutti i file .txt/.md/.csv in un unico dataset." />
-              <TextBlock Classes="muted" VerticalAlignment="Center" Text="{Binding DatasetPath}" />
-            </StackPanel>
+              <Button Grid.Column="1" Content="Import Folder" Click="OnImportDatasetFolderClick" ToolTip.Tip="Importa una cartella e unisce tutti i file .txt/.md/.csv in un unico dataset." />
+              <TextBox Grid.Column="2" Text="{Binding DatasetPath}" IsReadOnly="True" HorizontalAlignment="Stretch"
+                       TextWrapping="NoWrap" ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                       ToolTip.Tip="{Binding DatasetPathTooltipText}" />
+            </Grid>
+            <TextBlock Classes="muted" Text="{Binding DatasetPreviewLabelText}" />
+            <TextBlock Classes="muted" Text="{Binding DatasetPreviewHintText}" TextWrapping="Wrap" />
             <TextBox Text="{Binding DatasetText}" AcceptsReturn="True" TextWrapping="Wrap" Height="170" HorizontalAlignment="Stretch" ToolTip.Tip="Area testo dataset: puoi incollare manualmente oppure modificare il contenuto importato." />
-            <TextBlock Classes="muted" Text="{Binding DatasetStatsText}" />
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="muted" Text="{Binding DatasetStatsText}" TextWrapping="Wrap" />
+                <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Classes="muted" Text="{Binding DatasetStatsCharactersLabel}" />
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DatasetCharsText}" />
+                  <TextBlock Grid.Row="1" Grid.Column="0" Classes="muted" Text="{Binding DatasetStatsLinesLabel}" />
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DatasetLinesText}" />
+                  <TextBlock Grid.Row="2" Grid.Column="0" Classes="muted" Text="{Binding DatasetStatsWordsLabel}" />
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding DatasetWordsText}" />
+                  <TextBlock Grid.Row="3" Grid.Column="0" Classes="muted" Text="{Binding DatasetStatsUniqueCharsLabel}" />
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DatasetUniqueCharsText}" />
+                </Grid>
+              </StackPanel>
+            </Border>
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="muted" Text="{Binding DatasetRecommendationsTitle}" />
+                <TextBlock Classes="muted" Text="{Binding DatasetRecommendedTokenizerLine}" TextWrapping="Wrap" />
+                <TextBlock Classes="muted" Text="{Binding DatasetRecommendedTrainingProfileLine}" TextWrapping="Wrap" />
+                <TextBlock Classes="muted" Text="{Binding DatasetRecommendationsText}" TextWrapping="Wrap" />
+                <Button HorizontalAlignment="Left" Content="{Binding DatasetApplyRecommendationsText}" Command="{Binding DatasetApplyRecommendationsCommand}" ToolTip.Tip="Apply automatic dataset recommendations to tokenizer + training profile." />
+              </StackPanel>
+            </Border>
           </StackPanel>
         </Border>
 
-        <Border Classes="card" IsVisible="{Binding IsTokenizationSection}">
+        <Border Classes="glassCard" IsVisible="{Binding IsGatherDatasetSection}">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="h2" Text="{Binding GatherTitleText}" />
+            <TextBlock Classes="muted" Text="{Binding GatherIntroText}" TextWrapping="Wrap" />
+            <Grid ColumnDefinitions="170,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding GatherSourceLabel}" />
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding GatherSourceInput}" ToolTip.Tip="{Binding GatherSourceTooltipText}" />
+              <Button Grid.Row="0" Grid.Column="2" Content="{Binding GatherBrowseText}" Click="OnBrowseGatherSourceClick" ToolTip.Tip="Pick a source file/folder without typing paths manually." />
+
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding GatherWorkspaceLabel}" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding GatherWorkspaceDirectory}" IsReadOnly="True" />
+              <Button Grid.Row="1" Grid.Column="2" Content="{Binding GatherWorkspaceButtonText}" Click="OnBrowseGatherWorkspaceClick" ToolTip.Tip="Select where staging/conversion/merge artifacts are stored." />
+            </Grid>
+
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="muted" Text="{Binding GatherLicenseGateTitle}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="{Binding GatherStep1CheckLicenseText}" Command="{Binding GatherCheckLicenseCommand}" ToolTip.Tip="Checks provider metadata and blocks restricted/unknown licenses." />
+                  <CheckBox Content="{Binding GatherLicenseAckText}" IsChecked="{Binding GatherLicenseAcknowledged}" ToolTip.Tip="Mandatory legal acknowledgement before fetching sources." />
+                </StackPanel>
+                <TextBlock Classes="muted" Text="{Binding GatherLicenseText}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+
+            <WrapPanel Orientation="Horizontal" ItemWidth="210" ItemHeight="38">
+              <Button Classes="primary" Content="{Binding GatherStep2FetchText}" IsEnabled="{Binding CanGatherFetchSource}" Command="{Binding GatherFetchSourceCommand}" ToolTip.Tip="Download/stage source into workspace after license gate passes." />
+              <Button Content="{Binding GatherStep3ConvertText}" IsEnabled="{Binding CanGatherConvertParquet}" Command="{Binding GatherConvertParquetCommand}" ToolTip.Tip="Converts parquet sources into JSONL compatible with LLM Forge pipeline." />
+              <Button Content="{Binding GatherStep4MergeText}" IsEnabled="{Binding CanGatherMergeSources}" Command="{Binding GatherMergeSourcesCommand}" ToolTip.Tip="Merges all staged sources into one consolidated dataset artifact." />
+              <Button Content="{Binding GatherClearButtonText}" Command="{Binding GatherClearSourcesCommand}" ToolTip.Tip="Clears staged dataset entries from UI/workflow state without deleting source files on disk." />
+              <Button Content="{Binding GatherStep5ValidateText}" IsEnabled="{Binding CanGatherValidateDataset}" Command="{Binding GatherValidateDatasetCommand}" ToolTip.Tip="Runs readiness checks and generates quality/readiness summary." />
+              <Button Content="{Binding GatherStep6ApplyText}" IsEnabled="{Binding CanGatherApplyRecommendations}" Command="{Binding GatherApplyRecommendationsCommand}" ToolTip.Tip="Applies suggested tokenizer and training profile automatically." />
+            </WrapPanel>
+            <TextBlock Classes="muted" Text="{Binding GatherFlowHintText}" TextWrapping="Wrap" />
+            <TextBlock Classes="muted" Text="{Binding GatherParquetHintText}" TextWrapping="Wrap" />
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="8">
+                <TextBlock Classes="muted" Text="{Binding GatherMergeOptionsTitle}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock VerticalAlignment="Center" Text="{Binding GatherDedupPolicyLabel}" />
+                  <ComboBox Width="180" ItemsSource="{Binding GatherDedupPolicyOptions}" SelectedItem="{Binding GatherDedupPolicy}" ToolTip.Tip="Dedup strategy applied after weighted merge: none/line/paragraph." />
+                </StackPanel>
+                <TextBlock Classes="muted" Text="{Binding GatherMergeComplianceText}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <WrapPanel Orientation="Horizontal" ItemWidth="260" ItemHeight="38">
+              <Button Content="{Binding GatherStep7HandoffScratchText}" IsEnabled="{Binding CanGatherHandoffScratch}" Command="{Binding GatherHandoffToScratchCommand}" ToolTip.Tip="Sends gathered dataset directly to from-scratch Dataset section." />
+              <Button Content="{Binding GatherStep7HandoffFtText}" IsEnabled="{Binding CanGatherHandoffFineTune}" Command="{Binding GatherHandoffToFineTuneCommand}" ToolTip.Tip="Sends gathered dataset directly to Fine-Tuning (Ollama) dataset path." />
+            </WrapPanel>
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="muted" Text="{Binding GatherProgressText}" />
+                <ProgressBar IsVisible="{Binding GatherIsBusy}" Minimum="0" Maximum="100" Value="{Binding GatherProgressValue}" Height="10" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" IsVisible="{Binding GatherIsBusy}">
+                  <Button Content="{Binding GatherCancelButtonText}" Command="{Binding GatherCancelCommand}" IsEnabled="{Binding CanCancelGather}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="muted" Text="{Binding GatherSourcesCountText}" />
+                <TextBlock Classes="muted" Text="{Binding GatherSourceProviderText}" />
+                <TextBlock Classes="muted" Text="{Binding GatherStatusText}" TextWrapping="Wrap" />
+                <TextBlock Classes="muted" Text="{Binding GatherValidationText}" TextWrapping="Wrap" />
+                <TextBlock Classes="muted" Text="{Binding GatherStagedDatasetPath}" TextWrapping="Wrap" />
+                <Expander Header="{Binding GatherSourcesTableTitle}" IsExpanded="False">
+                  <ItemsControl ItemsSource="{Binding GatherSourceEntries}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border Classes="glassPanel" Padding="8" Margin="0,4,0,0">
+                          <Grid ColumnDefinitions="Auto,130,140,140,90,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="6">
+                            <CheckBox Grid.Row="0" Grid.Column="0" IsChecked="{Binding IsEnabled}" ToolTip.Tip="Enable/disable this source in final merge." />
+                            <NumericUpDown Grid.Row="0" Grid.Column="1" Minimum="1" Maximum="10" Value="{Binding Weight}" Width="120" HorizontalAlignment="Left" FormatString="0" ToolTip.Tip="Contribution weight for this source (higher adds more influence)." />
+                            <TextBlock Grid.Row="0" Grid.Column="2" Classes="muted" Text="{Binding Provider}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="0" Grid.Column="3" Classes="muted" Text="{Binding LicenseLabel}" VerticalAlignment="Center" />
+                            <Button Grid.Row="0" Grid.Column="4"
+                                    Content="{Binding DataContext.GatherRemoveSourceButtonText, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    Command="{Binding DataContext.GatherRemoveSourceCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding .}"
+                                    ToolTip.Tip="Remove this staged source from the current gather workspace list." />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="6" Classes="muted" Text="{Binding Path}" TextWrapping="Wrap" />
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </Expander>
+                <TextBlock Classes="muted" Text="{Binding GatherRecommendedTokenizerLine}" />
+                <TextBlock Classes="muted" Text="{Binding GatherRecommendedTrainingProfileLine}" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="glassCard" IsVisible="{Binding IsTokenizationSection}">
           <StackPanel Spacing="12">
             <TextBlock Classes="h2" Text="Tokenization" />
             <Grid ColumnDefinitions="220,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="10">
@@ -138,22 +309,35 @@
               <TextBlock Classes="muted" Text="{Binding TokenizerIdealValuesText}" TextWrapping="Wrap" />
             </Border>
             <StackPanel Orientation="Horizontal" Spacing="10">
-              <Button Classes="primary" Content="Train Tokenizer" Command="{Binding TrainTokenizerCommand}" ToolTip.Tip="Esegue il training tokenizer con i preset correnti e mostra i token più frequenti." />
-              <Button Content="Build x/y Preview" Command="{Binding BuildBatchPreviewCommand}" ToolTip.Tip="Costruisce una preview dei batch training dove Y è X shiftato di 1 token." />
+              <Button Classes="primary" Content="Train Tokenizer" IsEnabled="{Binding IsTokenizerIdle}" Command="{Binding TrainTokenizerCommand}" ToolTip.Tip="Esegue il training tokenizer con i preset correnti e mostra i token più frequenti." />
+              <Button Content="Build x/y Preview (Optional)" IsEnabled="{Binding CanBuildBatchPreview}" Command="{Binding BuildBatchPreviewCommand}" ToolTip.Tip="Optional verification step: builds a training batch preview where Y is X shifted by +1 token. Useful sanity check before training, not required to start training." />
             </StackPanel>
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="muted" Text="{Binding TokenizerProgressText}" />
+                <ProgressBar IsVisible="{Binding IsTokenizerBusy}" Minimum="0" Maximum="100" Value="{Binding TokenizerProgressValue}" Height="10" />
+                <TextBlock Classes="muted" Text="{Binding TokenizerLiveStatsText}" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" IsVisible="{Binding IsTokenizerBusy}">
+                  <Button Content="Cancel" Command="{Binding CancelTokenizerCommand}" IsEnabled="{Binding CanCancelTokenizer}" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
             <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TokenizerRecommendationText}" />
             <dg:DataGrid ItemsSource="{Binding VocabularyPreview}" Height="120" GridLinesVisibility="Horizontal" IsReadOnly="True" />
           </StackPanel>
         </Border>
 
-        <Border Classes="card" IsVisible="{Binding IsModelSection}">
+        <Border Classes="glassCard" IsVisible="{Binding IsModelSection}">
           <StackPanel Spacing="12">
             <TextBlock Classes="h2" Text="Model Config" />
+            <Border Classes="glassPanel" Padding="10,8">
+              <TextBlock Classes="muted" Text="{Binding ModelContextWindowText}" TextWrapping="Wrap" />
+            </Border>
             <Grid ColumnDefinitions="160,*,160,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
               <TextBlock Grid.Row="0" Grid.Column="0" Text="Vocab size" />
               <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding ModelVocabSize}" Minimum="1" Maximum="200000" ToolTip.Tip="Numero token del vocabolario del modello (tipicamente derivato dal tokenizer)." />
-              <TextBlock Grid.Row="0" Grid.Column="2" Text="Block size" />
-              <NumericUpDown Grid.Row="0" Grid.Column="3" Value="{Binding ModelBlockSize}" Minimum="8" Maximum="8192" ToolTip.Tip="Lunghezza massima contesto in token per ogni finestra di training." />
+              <TextBlock Grid.Row="0" Grid.Column="2" Text="Context window" />
+              <NumericUpDown Grid.Row="0" Grid.Column="3" Value="{Binding ModelBlockSize}" Minimum="8" Maximum="8192" ToolTip.Tip="Input context window in tokens (mapped to Block Size)." />
               <TextBlock Grid.Row="1" Grid.Column="0" Text="Layers" />
               <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding ModelLayers}" Minimum="1" Maximum="96" ToolTip.Tip="Numero blocchi Transformer; più alto = più capacità ma training più lento." />
               <TextBlock Grid.Row="1" Grid.Column="2" Text="Heads" />
@@ -161,14 +345,14 @@
               <TextBlock Grid.Row="2" Grid.Column="0" Text="Embedding" />
               <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding ModelEmbeddingSize}" Minimum="16" Maximum="8192" ToolTip.Tip="Dimensione vettore embedding per token. Impatta qualità e memoria." />
               <TextBlock Grid.Row="2" Grid.Column="2" Text="Est. params" />
-              <Border Grid.Row="2" Grid.Column="3" Classes="glass" Padding="8,6">
+              <Border Grid.Row="2" Grid.Column="3" Classes="glassPanel" Padding="8,6">
                 <TextBlock Text="{Binding ParameterEstimate}" FontSize="15" FontWeight="SemiBold" />
               </Border>
             </Grid>
           </StackPanel>
         </Border>
 
-        <Border Classes="card" IsVisible="{Binding IsTrainingSection}">
+        <Border Classes="glassCard" IsVisible="{Binding IsTrainingSection}">
           <StackPanel Spacing="12">
             <TextBlock Classes="h2" Text="Training" />
             <Grid ColumnDefinitions="160,*,160,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
@@ -249,6 +433,30 @@
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Cluster profile" />
                   <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding ClusterProfileOptions}" SelectedItem="{Binding TrainingClusterProfileName}" />
                 </Grid>
+                <Border Classes="glassPanel" Padding="10">
+                  <StackPanel Spacing="6">
+                    <TextBlock Classes="muted" Text="Cluster Live Sync (Realtime)" />
+                    <TextBlock Classes="muted" Text="{Binding ClusterLiveRoleText}" TextWrapping="Wrap" />
+                    <TextBlock Classes="muted" Text="{Binding ClusterLiveCoordinatorText}" TextWrapping="Wrap" />
+                    <TextBlock Classes="muted" Text="{Binding ClusterLiveSummaryText}" TextWrapping="Wrap" />
+                    <TextBlock Classes="muted" Text="Connected/Operational nodes" />
+                    <ItemsControl ItemsSource="{Binding ClusterLiveNodes}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <TextBlock Classes="muted" TextWrapping="Wrap" Text="• {Binding}" />
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Classes="muted" Text="Remote GPUs (reported by nodes)" />
+                    <ItemsControl ItemsSource="{Binding ClusterLiveRemoteGpus}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <TextBlock Classes="muted" TextWrapping="Wrap" Text="• {Binding}" />
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Border>
                 <StackPanel Orientation="Horizontal" Spacing="10">
                   <CheckBox Content="Stage: data" IsChecked="{Binding TrainingPipelineRunDataStage}" />
                   <CheckBox Content="Stage: preprocess" IsChecked="{Binding TrainingPipelineRunPreprocessStage}" />
@@ -306,26 +514,34 @@
                 </Grid>
               </StackPanel>
             </Expander>
-            <TextBlock Classes="muted" Text="{Binding BackendStatusText}" />
-            <TextBlock Classes="muted" Text="{Binding RunDirectoryHelpText}" />
-            <Border Classes="wizardbubble">
-              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingWizardMiniText}" />
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="muted" Text="{Binding BackendStatusText}" />
+                <TextBlock Classes="muted" Text="{Binding RunDirectoryHelpText}" />
+              </StackPanel>
             </Border>
-            <Border Classes="wizardbubble">
-              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingWizardDetailedText}" />
-            </Border>
-            <Border Classes="wizardbubble">
-              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingStepGuide}" />
-            </Border>
-            <Border Classes="wizardbubble">
-              <TextBlock Classes="muted" Text="{Binding TrainingReadinessText}" TextWrapping="Wrap" />
-            </Border>
-            <Border Classes="wizardbubble">
-              <TextBlock Classes="muted" Text="{Binding TrainingPreflightText}" TextWrapping="Wrap" />
-            </Border>
+            <Expander Header="Guided Notes" IsExpanded="False">
+              <StackPanel Spacing="8">
+                <Border Classes="wizardbubble">
+                  <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingWizardMiniText}" />
+                </Border>
+                <Border Classes="wizardbubble">
+                  <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingWizardDetailedText}" />
+                </Border>
+                <Border Classes="wizardbubble">
+                  <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding TrainingStepGuide}" />
+                </Border>
+                <Border Classes="wizardbubble">
+                  <TextBlock Classes="muted" Text="{Binding TrainingReadinessText}" TextWrapping="Wrap" />
+                </Border>
+                <Border Classes="wizardbubble">
+                  <TextBlock Classes="muted" Text="{Binding TrainingPreflightText}" TextWrapping="Wrap" />
+                </Border>
+              </StackPanel>
+            </Expander>
             <ProgressBar IsVisible="{Binding IsTraining}" IsIndeterminate="True" Height="10" />
             <TextBlock Classes="muted" Text="{Binding TrainingStatusText}" />
-            <Border Classes="glass" Padding="10">
+            <Border Classes="glassPanel" Padding="10">
               <StackPanel Spacing="6">
                 <TextBlock Classes="muted" Text="Training Live Stats" />
                 <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="4">
@@ -342,7 +558,7 @@
                   <TextBlock Grid.Row="5" Grid.Column="0" Classes="muted" Text="Overfitting" />
                   <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding OverfittingStatusText}" TextWrapping="Wrap" />
                 </Grid>
-                <Border Classes="glass" Padding="8">
+                <Border Classes="glassPanel" Padding="8">
                   <StackPanel Spacing="6">
                     <TextBlock Classes="muted" Text="Training Quality Score" />
                     <StackPanel Orientation="Horizontal" Spacing="10">
@@ -358,7 +574,7 @@
                     </StackPanel>
                   </StackPanel>
                 </Border>
-                <Border Classes="glass" Padding="8">
+                <Border Classes="glassPanel" Padding="8">
                   <StackPanel Spacing="6">
                     <TextBlock Classes="muted" Text="Eval Gate" />
                     <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="4">
@@ -377,37 +593,48 @@
                 </Border>
               </StackPanel>
             </Border>
-            <StackPanel Orientation="Horizontal" Spacing="8">
+            <WrapPanel Orientation="Horizontal" ItemWidth="220" ItemHeight="38">
               <Button Classes="primary" Content="Start Backend Training" IsEnabled="{Binding IsTrainingIdle}" Command="{Binding StartBackendTrainingCommand}" ToolTip.Tip="Avvia il training reale PyTorch in processo separato e aggiorna i log live." />
               <Button Content="Cancel Training" IsEnabled="{Binding IsTraining}" Command="{Binding CancelBackendTrainingCommand}" ToolTip.Tip="Interrompe il processo di training backend in esecuzione." />
+              <Button Content="Export for Ollama" IsEnabled="{Binding CanExportForOllama}" Command="{Binding ExportForOllamaCommand}" ToolTip.Tip="{Binding OllamaExportButtonHint}" />
               <Button Content="Open Output Folder" Click="OnOpenOutputClick" ToolTip.Tip="Apre la cartella output con log JSONL, checkpoint e manifest del run." />
-            </StackPanel>
-            <TextBlock Classes="muted" Text="{Binding ChartSummary}" />
+            </WrapPanel>
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="muted" Text="{Binding OllamaExportButtonHint}" />
+                <TextBlock Classes="muted" Text="{Binding ChartSummary}" />
+              </StackPanel>
+            </Border>
             <dg:DataGrid ItemsSource="{Binding TrainingLogs}" Height="150" GridLinesVisibility="Horizontal" IsReadOnly="True" />
           </StackPanel>
         </Border>
 
-        <Border Classes="card" IsVisible="{Binding IsGenerationSection}">
+        <Border Classes="glassCard" IsVisible="{Binding IsGenerationSection}">
           <StackPanel Spacing="12">
             <TextBlock Classes="h2" Text="Generation" />
+            <Border Classes="glassPanel" Padding="10,8">
+              <TextBlock Classes="muted" Text="{Binding GenerationOutputWindowText}" TextWrapping="Wrap" />
+            </Border>
             <Grid ColumnDefinitions="160,*,160,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
               <TextBlock Grid.Row="0" Grid.Column="0" Text="Temperature" />
-              <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding SamplingConfig.Temperature}" Minimum="0.05" Maximum="3" Increment="0.05" ToolTip.Tip="Controlla casualità: più basso = più deterministico, più alto = più creativo." />
+              <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding SamplingConfig.Temperature}" Minimum="0.05" Maximum="3" Increment="0.05" ToolTip.Tip="Controlla casualità: più basso = più deterministico, più alto = più creativo. Default consigliato: 0.45." />
               <TextBlock Grid.Row="0" Grid.Column="2" Text="Top-k" />
-              <NumericUpDown Grid.Row="0" Grid.Column="3" Value="{Binding SamplingConfig.TopK}" Minimum="1" Maximum="100000" ToolTip.Tip="Limita il campionamento ai K token più probabili." />
+              <NumericUpDown Grid.Row="0" Grid.Column="3" Value="{Binding SamplingConfig.TopK}" Minimum="1" Maximum="100000" ToolTip.Tip="Limita il campionamento ai K token più probabili. Default consigliato: 30." />
               <TextBlock Grid.Row="1" Grid.Column="0" Text="Seed" />
-              <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding SamplingConfig.Seed}" Minimum="0" Maximum="999999" ToolTip.Tip="Seed pseudo-casuale per rendere i risultati riproducibili." />
-              <TextBlock Grid.Row="1" Grid.Column="2" Text="Max new tokens" />
-              <NumericUpDown Grid.Row="1" Grid.Column="3" Value="{Binding SamplingConfig.MaxNewTokens}" Minimum="1" Maximum="8192" ToolTip.Tip="Numero massimo token da generare oltre al prompt." />
+              <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding SamplingConfig.Seed}" Minimum="-1" Maximum="999999" ToolTip.Tip="Seed pseudo-casuale. Usa -1 per seed automatico casuale a ogni run." />
+              <TextBlock Grid.Row="1" Grid.Column="2" Text="Max output tokens" />
+              <NumericUpDown Grid.Row="1" Grid.Column="3" Value="{Binding SamplingConfig.MaxNewTokens}" Minimum="1" Maximum="8192" ToolTip.Tip="Maximum output tokens for the reply (mapped to Max New Tokens). Default recommended: 80." />
               <TextBlock Grid.Row="2" Grid.Column="0" Text="Checkpoint" />
               <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding CheckpointPath}" HorizontalAlignment="Stretch" ToolTip.Tip="Path al file checkpoint_manifest.json da usare per la generazione reale." />
             </Grid>
             <TextBox Text="{Binding GenerationPrompt}" Height="65" AcceptsReturn="True" TextWrapping="Wrap" HorizontalAlignment="Stretch" ToolTip.Tip="Prompt iniziale da cui parte la generazione autoregressiva." />
-            <TextBlock Classes="muted" Text="{Binding GenerationStatusText}" />
+            <Border Classes="glassPanel" Padding="10">
+              <TextBlock Classes="muted" Text="{Binding GenerationStatusText}" />
+            </Border>
             <StackPanel Orientation="Horizontal" Spacing="8">
               <Button Classes="primary" Content="Generate from Checkpoint" IsEnabled="{Binding IsGenerationIdle}" Command="{Binding GenerateFromCheckpointCommand}" ToolTip.Tip="Carica il checkpoint selezionato e genera testo autoregressivo dal prompt." />
             </StackPanel>
-            <Border Classes="glass">
+            <Border Classes="glassPanel">
               <StackPanel Spacing="6">
                 <TextBlock Classes="muted" Text="Generated Output" />
                 <TextBox Text="{Binding GeneratedText}" Height="220" AcceptsReturn="True" TextWrapping="Wrap" IsReadOnly="True" HorizontalAlignment="Stretch" />
@@ -416,7 +643,93 @@
           </StackPanel>
         </Border>
 
-        <Border Classes="card" IsVisible="{Binding IsGuideSection}">
+        <Border Classes="glassCard" IsVisible="{Binding IsFineTuningOllamaSection}">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="h2" Text="Fine-Tuning (Ollama, Experimental)" />
+            <TextBlock Classes="muted" Text="Dedicated workspace for Ollama-oriented fine-tuning. This area is separate from the from-scratch training flow." TextWrapping="Wrap" />
+
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="10">
+                <TextBlock Classes="muted" Text="Base Model + Dataset" />
+                <Grid ColumnDefinitions="170,*,Auto,170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Base model path" />
+                  <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding OllamaFtBaseModelPath}" IsReadOnly="True" ToolTip.Tip="Auto-detected base checkpoint from current run (model.pt)." />
+                  <TextBlock Grid.Row="0" Grid.Column="2" Classes="muted" Text="(auto)" VerticalAlignment="Center" />
+                  <TextBlock Grid.Row="0" Grid.Column="3" Text="Method" />
+                  <ComboBox Grid.Row="0" Grid.Column="4" ItemsSource="{Binding OllamaFtMethodOptions}" SelectedItem="{Binding OllamaFtMethod}" ToolTip.Tip="Select fine-tuning method strategy." />
+
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="New model name" />
+                  <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding OllamaFtOutputModelName}" ToolTip.Tip="Name for generated fine-tuned model artifacts." />
+                  <TextBlock Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2" Classes="muted" Text="Name of fine-tuned model output." VerticalAlignment="Center" />
+
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Dataset path" />
+                  <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding OllamaFtDatasetPath}" IsReadOnly="True" ToolTip.Tip="Dataset used for fine-tuning." />
+                  <Button Grid.Row="2" Grid.Column="2" Content="Browse..." Click="OnBrowseOllamaFtDatasetClick" ToolTip.Tip="Pick dataset file/folder for fine-tuning." />
+                  <TextBlock Grid.Row="2" Grid.Column="3" Grid.ColumnSpan="2" Classes="muted" Text="Select file/folder with dialog." VerticalAlignment="Center" />
+
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Output directory" />
+                  <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding OllamaFtOutputDirectory}" IsReadOnly="True" ToolTip.Tip="Output directory for job, logs, manifest and exports." />
+                  <Button Grid.Row="3" Grid.Column="2" Content="Browse..." Click="OnBrowseOllamaFtOutputClick" ToolTip.Tip="Select output directory." />
+                  <TextBlock Grid.Row="3" Grid.Column="3" Grid.ColumnSpan="2" Classes="muted" Text="Pick destination folder with dialog." VerticalAlignment="Center" />
+
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Backend" />
+                  <ComboBox Grid.Row="4" Grid.Column="1" ItemsSource="{Binding OllamaFtBackendOptions}" SelectedItem="{Binding OllamaFtBackend}" ToolTip.Tip="Fine-tuning backend target abstraction (Ollama-first, future-ready)." />
+                  <TextBlock Grid.Row="4" Grid.Column="3" Grid.ColumnSpan="2" Classes="muted" Text="Use ollama-local for current stable flow." VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="10">
+                <TextBlock Classes="muted" Text="Template + Hyperparameters" />
+                <Grid ColumnDefinitions="170,*,170,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Chat template" />
+                  <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding OllamaFtTemplateOptions}" SelectedItem="{Binding OllamaFtTemplate}" ToolTip.Tip="Chat template used by downstream packaging/prompt format." />
+                  <TextBlock Grid.Row="0" Grid.Column="2" Text="Epochs" />
+                  <NumericUpDown Grid.Row="0" Grid.Column="3" Minimum="1" Maximum="1000" Value="{Binding OllamaFtEpochs}" ToolTip.Tip="Number of fine-tuning epochs." />
+
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Batch size" />
+                  <NumericUpDown Grid.Row="1" Grid.Column="1" Minimum="1" Maximum="512" Value="{Binding OllamaFtBatchSize}" ToolTip.Tip="Micro-batch size per optimizer step." />
+                  <TextBlock Grid.Row="1" Grid.Column="2" Text="Grad accum" />
+                  <NumericUpDown Grid.Row="1" Grid.Column="3" Minimum="1" Maximum="1024" Value="{Binding OllamaFtGradientAccumulation}" ToolTip.Tip="Gradient accumulation to emulate larger effective batch." />
+
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Learning rate" />
+                  <NumericUpDown Grid.Row="2" Grid.Column="1" Minimum="0.000001" Maximum="0.1" Increment="0.00001" Value="{Binding OllamaFtLearningRate}" ToolTip.Tip="Learning rate for fine-tuning optimizer." />
+                  <TextBlock Grid.Row="2" Grid.Column="2" Text="LoRA rank" />
+                  <NumericUpDown Grid.Row="2" Grid.Column="3" Minimum="1" Maximum="1024" Value="{Binding OllamaFtLoraRank}" ToolTip.Tip="LoRA rank parameter." />
+
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="LoRA alpha" />
+                  <NumericUpDown Grid.Row="3" Grid.Column="1" Minimum="1" Maximum="4096" Value="{Binding OllamaFtLoraAlpha}" ToolTip.Tip="LoRA alpha scaling parameter." />
+                  <TextBlock Grid.Row="3" Grid.Column="2" Text="LoRA dropout" />
+                  <NumericUpDown Grid.Row="3" Grid.Column="3" Minimum="0" Maximum="1" Increment="0.01" Value="{Binding OllamaFtLoraDropout}" ToolTip.Tip="LoRA dropout for regularization." />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <CheckBox Content="Pack output for Ollama handoff" IsChecked="{Binding OllamaFtPackForOllama}" ToolTip.Tip="Generate handoff-ready export folder after fine-tuning stages." />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <WrapPanel Orientation="Horizontal" ItemWidth="250" ItemHeight="38">
+              <Button Classes="primary" Content="Step 1: Prepare Run" Command="{Binding PrepareOllamaFineTuneCommand}" ToolTip.Tip="Validates required inputs and prepares fine-tuning workspace artifacts." />
+              <Button Classes="primary" Content="Step 2: Start Fine-Tune" IsEnabled="{Binding IsOllamaFtIdle}" Command="{Binding StartOllamaFineTuneCommand}" ToolTip.Tip="Starts fine-tuning runtime on the prepared dataset and base checkpoint." />
+              <Button Content="Step 3: Convert to GGUF" IsEnabled="{Binding CanConvertOllamaFineTuneToGguf}" Command="{Binding ConvertOllamaFineTuneToGgufCommand}" ToolTip.Tip="Runs GGUF conversion stage when converter is configured." />
+              <Button Content="Step 4: Finalize Ollama Export" IsEnabled="{Binding CanFinalizeOllamaFineTuneExport}" Command="{Binding FinalizeOllamaFineTuneExportCommand}" ToolTip.Tip="Builds final handoff bundle once GGUF is available." />
+              <Button Content="Cancel Fine-Tune" IsEnabled="{Binding IsOllamaFtRunning}" Command="{Binding CancelOllamaFineTuneCommand}" ToolTip.Tip="Stops the running fine-tuning process." />
+            </WrapPanel>
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="muted" Text="Pipeline Progress" />
+                <ProgressBar Minimum="0" Maximum="100" Value="{Binding OllamaFtPipelineProgressPercent}" Height="10" />
+                <TextBlock Classes="muted" Text="{Binding OllamaFtPipelineProgressText}" />
+              </StackPanel>
+            </Border>
+            <Border Classes="glassPanel" Padding="10">
+              <TextBlock Classes="muted" Text="{Binding OllamaFtStatusText}" />
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="glassCard" IsVisible="{Binding IsGuideSection}">
           <StackPanel Spacing="12">
             <TextBlock Classes="h2" Text="{Binding GuideTitleText}" />
             <TextBlock Classes="muted" TextWrapping="Wrap"
@@ -481,17 +794,19 @@
               </StackPanel>
             </Border>
 
-            <TextBlock Classes="muted" TextWrapping="Wrap"
-                       Text="{Binding GuideOrderText}" />
-            <TextBlock Classes="muted" TextWrapping="Wrap"
-                       Text="{Binding GuideSourceText}" />
-            <Border Classes="glass" Padding="8">
-              <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding RoadmapChecklistText}" />
+            <Border Classes="glassPanel" Padding="10">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{Binding GuideOrderText}" />
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{Binding GuideSourceText}" />
+                <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding RoadmapChecklistText}" />
+              </StackPanel>
             </Border>
           </StackPanel>
         </Border>
 
-        <Border Classes="card" IsVisible="{Binding IsTrainingSection}">
+        <Border Classes="glassCard" IsVisible="{Binding IsTrainingSection}">
           <StackPanel Spacing="10">
             <TextBlock Classes="h2" Text="Compatibility / Warnings" />
             <ItemsControl ItemsSource="{Binding Warnings}">
@@ -502,24 +817,39 @@
           </StackPanel>
         </Border>
 
-        <Border Classes="card" HorizontalAlignment="Stretch" ClipToBounds="True">
+        <Border Classes="glassCard" HorizontalAlignment="Stretch">
           <StackPanel Spacing="10">
             <TextBlock Classes="h2" Text="Console / Explanation" />
-            <TextBox Text="{Binding Log}"
-                     AcceptsReturn="True"
-                     TextWrapping="NoWrap"
-                     Height="300"
-                     MaxWidth="620"
-                     IsReadOnly="True"
-                     HorizontalAlignment="Left"
-                     ClipToBounds="True"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            <Expander Header="Show Runtime Log" IsExpanded="False">
+              <TextBox Text="{Binding Log}"
+                       AcceptsReturn="True"
+                       TextWrapping="NoWrap"
+                       MinHeight="260"
+                       Height="300"
+                       IsReadOnly="True"
+                       HorizontalAlignment="Stretch"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            </Expander>
           </StackPanel>
         </Border>
 
       </StackPanel>
     </ScrollViewer>
+    </Border>
+
+    <Border Grid.Row="2" Grid.ColumnSpan="2" Classes="glassFooter" Padding="10,8" Margin="12,0,12,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="16">
+          <TextBlock Classes="muted" Text="DASHBOARD" />
+          <TextBlock Classes="muted" Text="WORKFLOW" />
+          <TextBlock Classes="muted" Text="TRAINING" />
+          <TextBlock Classes="muted" Text="FINE-TUNE" />
+          <TextBlock Classes="muted" Text="EXPORT" />
+        </StackPanel>
+        <TextBlock DockPanel.Dock="Right" Classes="muted" Text="{Binding BackendStatusText}" />
+      </DockPanel>
+    </Border>
 
     <Border Grid.ColumnSpan="2" Grid.RowSpan="2" Background="#90000000" IsVisible="{Binding ShowSettingsOverlay}">
       <Border Width="520" Background="{Binding ModalBackground}" BorderBrush="{Binding ModalBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="16"
@@ -553,6 +883,86 @@
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
             <Button Content="Open Website" Click="OnOpenAuthorWebsiteClick" />
             <Button Content="OK" Command="{Binding CloseAboutCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <Border Grid.ColumnSpan="2" Grid.RowSpan="2" Background="#8A000000" IsVisible="{Binding ShowLogsOverlay}">
+      <Border Background="{Binding ModalBackground}" BorderBrush="{Binding ModalBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="16"
+              Width="{Binding LogsOverlayWidth}" Height="{Binding LogsOverlayHeight}" MinWidth="640" MinHeight="380"
+              HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="8">
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBlock Grid.Column="0" Classes="h2" Text="{Binding LogsOverlayTitle}" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="{Binding LogsOverlayCloseButton}" Command="{Binding ToggleLogsCommand}" HorizontalAlignment="Right" />
+          </Grid>
+          <Grid Grid.Row="1" ColumnDefinitions="Auto,110,Auto,110,*" ColumnSpacing="8">
+            <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center" Text="{Binding LogsOverlayWidthLabel}" />
+            <NumericUpDown Grid.Column="1" Minimum="640" Maximum="1600" Value="{Binding LogsOverlayWidth}" FormatString="0" />
+            <TextBlock Grid.Column="2" Classes="muted" VerticalAlignment="Center" Text="{Binding LogsOverlayHeightLabel}" />
+            <NumericUpDown Grid.Column="3" Minimum="380" Maximum="1000" Value="{Binding LogsOverlayHeight}" FormatString="0" />
+            <TextBlock Grid.Column="4" Classes="muted" VerticalAlignment="Center" Text="{Binding LogsOverlaySizeLabel}" />
+          </Grid>
+          <Border Grid.Row="2" Classes="glassPanel" Padding="8">
+            <TextBox Text="{Binding Log}" AcceptsReturn="True" IsReadOnly="True"
+                     TextWrapping="Wrap"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+          </Border>
+          <TextBlock Grid.Row="3" Classes="muted" Text="Tip: keep this panel open while long-running operations execute." TextWrapping="Wrap" />
+          <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="{Binding LogsOverlayClearButton}" Command="{Binding ClearLogCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Border>
+
+    <Border Grid.ColumnSpan="2" Grid.RowSpan="2" Background="#8A000000" IsVisible="{Binding ShowNotificationsOverlay}">
+      <Border Background="{Binding ModalBackground}" BorderBrush="{Binding ModalBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="16"
+              Width="760" Height="520" MinWidth="640" MinHeight="420"
+              HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <TextBlock Grid.Column="0" Classes="h2" Text="{Binding NotificationsTitleText}" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="{Binding LogsOverlayClearButton}" Command="{Binding ClearNotificationsCommand}" />
+            <Button Grid.Column="2" Content="{Binding LogsOverlayCloseButton}" Command="{Binding ToggleNotificationsCommand}" />
+          </Grid>
+          <Border Grid.Row="1" Classes="glassPanel" Padding="8">
+            <ListBox ItemsSource="{Binding Notifications}" Background="Transparent" BorderThickness="0">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Border Margin="0,0,0,6" Padding="8" Background="#182642" CornerRadius="8">
+                    <StackPanel Spacing="4">
+                      <TextBlock Text="{Binding Level}" Classes="muted" />
+                      <TextBlock Text="{Binding Title}" FontWeight="Bold" />
+                      <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding TimestampText}" Classes="muted" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Border>
+          <TextBlock Grid.Row="2" Classes="muted" Text="{Binding NotificationsEmptyText}" />
+        </Grid>
+      </Border>
+    </Border>
+
+    <Border Grid.ColumnSpan="2" Grid.RowSpan="3" Background="#9A000000" IsVisible="{Binding ShowBusyOverlay}" Opacity="{Binding BusyOverlayOpacity}">
+      <Border.Transitions>
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.18"/>
+        </Transitions>
+      </Border.Transitions>
+      <Border Width="420" Background="{Binding ModalBackground}" BorderBrush="{Binding ModalBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="18"
+              HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="h2" Text="{Binding BusyOverlayText}" />
+          <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding BusyOverlaySubText}" />
+          <ProgressBar IsIndeterminate="True" Height="10" />
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancel" Command="{Binding CancelBusyOverlayCommand}" IsEnabled="{Binding BusyOverlayCancelable}" />
           </StackPanel>
         </StackPanel>
       </Border>

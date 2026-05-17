@@ -7,6 +7,7 @@ public static class GenerationPreviewService
         if (config.Greedy)
             return "Greedy: prende sempre il token con punteggio più alto. Stabile, ma spesso ripetitivo.";
 
-        return $"Sampling: temperature={config.Temperature:0.00}, top_k={config.TopK}, seed={config.Seed}. Più flessibile di greedy.";
+        var seedLabel = config.Seed < 0 ? "random" : config.Seed.ToString();
+        return $"Sampling: temperature={config.Temperature:0.00}, top_k={config.TopK}, seed={seedLabel}. Più flessibile di greedy.";
     }
 }

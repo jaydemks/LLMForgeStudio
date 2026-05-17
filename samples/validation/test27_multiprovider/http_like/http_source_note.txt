@@ -1,0 +1,1 @@
+Simula sorgente da provider HTTP (usa Fetch con URL diretto se disponibile).

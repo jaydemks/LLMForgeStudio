@@ -25,9 +25,9 @@ public static class GuidedDefaultsEngine
                 tokenizer.KeepPunctuationAsTokens = true;
                 break;
             case TokenizerKind.ByteLevelBpe:
-                tokenizer.TargetVocabSize = Math.Clamp(approxWords / 4, 2_000, 24_000);
-                tokenizer.MinFrequency = 2;
-                tokenizer.MaxMerges = Math.Clamp(tokenizer.TargetVocabSize / 2, 800, 32_000);
+                tokenizer.TargetVocabSize = Math.Clamp(approxWords / 4, 4_000, 24_000);
+                tokenizer.MinFrequency = approxWords < 250_000 ? 1 : 2;
+                tokenizer.MaxMerges = Math.Clamp((int)(tokenizer.TargetVocabSize * 0.75), 2_000, 32_000);
                 tokenizer.KeepPunctuationAsTokens = true;
                 break;
             case TokenizerKind.Unigram:
@@ -43,9 +43,9 @@ public static class GuidedDefaultsEngine
                 tokenizer.KeepPunctuationAsTokens = true;
                 break;
             case TokenizerKind.SimpleBpe:
-                tokenizer.TargetVocabSize = Math.Clamp(approxWords / 4, 2_000, 16_000);
-                tokenizer.MinFrequency = 2;
-                tokenizer.MaxMerges = Math.Clamp(tokenizer.TargetVocabSize / 2, 500, 20_000);
+                tokenizer.TargetVocabSize = Math.Clamp(approxWords / 4, 3_000, 16_000);
+                tokenizer.MinFrequency = approxWords < 250_000 ? 1 : 2;
+                tokenizer.MaxMerges = Math.Clamp((int)(tokenizer.TargetVocabSize * 0.7), 1_500, 20_000);
                 tokenizer.KeepPunctuationAsTokens = true;
                 break;
             case TokenizerKind.HybridFallback:
@@ -77,13 +77,15 @@ public static class GuidedDefaultsEngine
                 training.EvalEvery = 100;
                 break;
             case TokenizerKind.ByteLevelBpe:
-                model.BlockSize = 256;
-                model.Layers = 8;
-                model.Heads = 8;
-                model.EmbeddingSize = 512;
-                training.BatchSize = 20;
-                training.LearningRate = 2e-4;
-                training.EvalEvery = 80;
+                // Safer default for from-scratch conversational quality on small/medium corpora.
+                // Slightly smaller capacity + lower LR tends to reduce gibberish collapse.
+                model.BlockSize = 192;
+                model.Layers = 6;
+                model.Heads = 6;
+                model.EmbeddingSize = 384;
+                training.BatchSize = 16;
+                training.LearningRate = 1e-4;
+                training.EvalEvery = 60;
                 break;
             case TokenizerKind.Unigram:
                 model.BlockSize = 224;
@@ -219,11 +221,15 @@ public static class GuidedDefaultsEngine
                 training.ExportGguf = false;
                 break;
             case "Serious":
-                training.Optimizer = "lion";
+                training.BatchSize = 12;
+                training.MaxSteps = Math.Max(training.MaxSteps, 3000);
+                training.LearningRate = 8e-5;
+                training.EvalEvery = 60;
+                training.Optimizer = "adamw";
                 training.Scheduler = "cosine";
-                training.WarmupSteps = 300;
+                training.WarmupSteps = 400;
                 training.MixedPrecision = true;
-                training.Precision = "bf16";
+                training.Precision = "fp16";
                 training.EnableGradientClipping = true;
                 training.GradientClipNorm = 1.0;
                 training.CheckpointEvery = 200;
@@ -236,15 +242,15 @@ public static class GuidedDefaultsEngine
                 training.DistributedTraining = false;
                 training.OrchestratePipelineStages = false;
                 training.MultiGpuStrategy = "none";
-                training.GradientAccumulationSteps = 1;
+                training.GradientAccumulationSteps = 2;
                 training.AutoDeviceMap = true;
                 training.QuantizationProfile = "ptq-int8";
                 training.QuantizationCalibrationSamples = 96;
                 training.EnableQatPath = false;
                 training.QatFineTuneSteps = 200;
-                training.FineTuningOrchestration = true;
+                training.FineTuningOrchestration = false;
                 training.FineTuneStageSft = true;
-                training.FineTuneStageDpo = true;
+                training.FineTuneStageDpo = false;
                 training.FineTuneStageRlhf = false;
                 training.RlhfFeedbackSource = "jsonl-human-feedback";
                 training.RlhfFeedbackPath = string.Empty;

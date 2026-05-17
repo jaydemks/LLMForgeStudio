@@ -12,19 +12,28 @@ public static class FineTuningStageOrchestrator
 
         var current = rawDataset ?? string.Empty;
         var completed = new List<string>();
+        var warnings = new List<string>();
 
         if (training.FineTuningOrchestration)
         {
             if (training.FineTuneStageSft)
             {
-                current = SftDatasetFormatter.FormatToTrainingText(current);
-                completed.Add("sft");
+                current = ApplyStageSafely(
+                    current,
+                    input => SftDatasetFormatter.FormatToTrainingText(input),
+                    "sft",
+                    warnings);
+                completed.Add("sft*");
             }
 
             if (training.FineTuneStageDpo)
             {
-                current = DpoDatasetFormatter.FormatToTrainingText(current);
-                completed.Add("dpo");
+                current = ApplyStageSafely(
+                    current,
+                    input => DpoDatasetFormatter.FormatToTrainingText(input),
+                    "dpo",
+                    warnings);
+                completed.Add("dpo*");
             }
 
             if (training.FineTuneStageRlhf)
@@ -47,8 +56,16 @@ public static class FineTuningStageOrchestrator
         {
             current = training.AlignmentMode.ToLowerInvariant() switch
             {
-                "sft" => SftDatasetFormatter.FormatToTrainingText(current),
-                "dpo" => DpoDatasetFormatter.FormatToTrainingText(current),
+                "sft" => ApplyStageSafely(
+                    current,
+                    input => SftDatasetFormatter.FormatToTrainingText(input),
+                    "sft",
+                    warnings),
+                "dpo" => ApplyStageSafely(
+                    current,
+                    input => DpoDatasetFormatter.FormatToTrainingText(input),
+                    "dpo",
+                    warnings),
                 _ => current
             };
             completed.Add(training.AlignmentMode.ToLowerInvariant());
@@ -63,6 +80,7 @@ public static class FineTuningStageOrchestrator
             enabled = training.FineTuningOrchestration,
             alignment_mode = training.AlignmentMode,
             completed_stages = completed.Where(x => !string.IsNullOrWhiteSpace(x)).ToArray(),
+            warnings = warnings.ToArray(),
             rlhf_feedback_source = training.RlhfFeedbackSource,
             reward_modeling_enabled = training.RewardModelingEnabled,
             safety_policy_mode = training.SafetyPolicyMode
@@ -70,6 +88,18 @@ public static class FineTuningStageOrchestrator
         await File.WriteAllTextAsync(stagePath, JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
 
         return outPath;
+    }
+
+    private static string ApplyStageSafely(string input, Func<string, string> formatter, string stageName, List<string> warnings)
+    {
+        var before = input ?? string.Empty;
+        var after = formatter(before) ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(after) && !string.IsNullOrWhiteSpace(before))
+        {
+            warnings.Add($"Stage '{stageName}' produced empty output and was skipped (fallback to previous dataset).");
+            return before;
+        }
+        return after;
     }
 
     private static string ApplyRlhfPlaceholder(string text, string feedbackSource, string importedFeedback)

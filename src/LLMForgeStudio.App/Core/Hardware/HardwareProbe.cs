@@ -62,13 +62,19 @@ public static class HardwareProbe
             if (OperatingSystem.IsWindows())
             {
                 var output = RunAndRead("cmd", "/c wmic path win32_VideoController get Name");
-                var gpus = output.Split('\n')
+                var detected = output.Split('\n')
                     .Select(x => x.Trim())
                     .Where(x => !string.IsNullOrWhiteSpace(x) && !x.Equals("Name", StringComparison.OrdinalIgnoreCase))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
-                if (gpus.Count > 0) return gpus;
+                // Keep only training-capable physical adapters in primary list.
+                var filtered = detected
+                    .Where(IsTrainingGpuCandidate)
+                    .ToList();
+
+                if (filtered.Count > 0) return filtered;
+                if (detected.Count > 0) return new[] { "Nessuna GPU training-capable rilevata (solo adapter virtuali o non supportati)." };
             }
         }
         catch { }
@@ -131,6 +137,37 @@ public static class HardwareProbe
             return "Nessuna accelerazione GPU backend attiva: training su CPU (più lento).";
 
         return "Configurazione hardware rilevata.";
+    }
+
+    private static bool IsTrainingGpuCandidate(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        if (IsVirtualDisplayAdapter(name)) return false;
+
+        // Keep known training-capable vendors.
+        return name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("GeForce", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("RTX", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Quadro", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Tesla", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("AMD", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Radeon", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Instinct", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Intel Arc", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsVirtualDisplayAdapter(string name)
+    {
+        var s = name.Trim();
+        return s.Contains("Virtual", StringComparison.OrdinalIgnoreCase)
+            || s.Contains("Remote Display", StringComparison.OrdinalIgnoreCase)
+            || s.Contains("Basic Render", StringComparison.OrdinalIgnoreCase)
+            || s.Contains("Hyper-V", StringComparison.OrdinalIgnoreCase)
+            || s.Contains("VMware", StringComparison.OrdinalIgnoreCase)
+            || s.Contains("VirtualBox", StringComparison.OrdinalIgnoreCase)
+            || s.Contains("Citrix", StringComparison.OrdinalIgnoreCase)
+            || s.Contains("Meta Virtual Monitor", StringComparison.OrdinalIgnoreCase)
+            || s.Contains("Virtual Desktop Monitor", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string RunAndRead(string fileName, string arguments)

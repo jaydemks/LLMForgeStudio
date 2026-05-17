@@ -1,0 +1,1 @@
+Sorgente locale per confronto provider nel test multi-provider.

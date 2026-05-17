@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,13 +15,64 @@ def _utc_now():
 
 def _write_json(path: Path, payload: dict):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    text = json.dumps(payload, indent=2)
+    # Windows-safe atomic write with retries: avoids transient file-lock crashes
+    # when UI/other processes read heartbeat/state files concurrently.
+    last_exc = None
+    for attempt in range(8):
+        tmp_name = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                delete=False,
+                dir=str(path.parent),
+                prefix=f".{path.stem}.tmp.",
+                suffix=path.suffix or ".json",
+            ) as tmp:
+                tmp_name = tmp.name
+                tmp.write(text)
+                tmp.flush()
+                try:
+                    os.fsync(tmp.fileno())
+                except OSError:
+                    pass
+            os.replace(tmp_name, path)
+            return
+        except (PermissionError, OSError) as exc:
+            last_exc = exc
+            if tmp_name:
+                try:
+                    Path(tmp_name).unlink(missing_ok=True)
+                except Exception:
+                    pass
+            time.sleep(0.05 * (attempt + 1))
+    if last_exc is not None:
+        raise last_exc
 
 
 def _safe_node_id() -> str:
     raw = os.environ.get("LLMFORGE_CLUSTER_NODE_ID", "") or os.environ.get("COMPUTERNAME", "") or os.environ.get("HOSTNAME", "")
     raw = raw.strip().replace(" ", "_")
     return raw if raw else "node-unknown"
+
+
+def _detect_gpu_devices() -> list[str]:
+    # Best-effort runtime detection for cluster telemetry.
+    try:
+        proc = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if proc.returncode == 0:
+            rows = [x.strip() for x in (proc.stdout or "").splitlines() if x.strip()]
+            if rows:
+                return rows
+    except Exception:
+        pass
+    return []
 
 
 def _atomic_claim(src: Path, dst: Path) -> bool:
@@ -107,9 +159,8 @@ def main():
         def _run_train_stage():
             proc = subprocess.Popen(
                 [sys.executable, str(train_script), "--job", str(job_path)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
+                stdout=None,
+                stderr=None,
             )
 
             while proc.poll() is None:
@@ -119,12 +170,6 @@ def main():
                     "updated_at_utc": _utc_now(),
                 })
                 time.sleep(heartbeat_seconds)
-
-            stdout, stderr = proc.communicate()
-            if stdout:
-                print(stdout, end="", flush=True)
-            if stderr:
-                print(stderr, end="", file=sys.stderr, flush=True)
 
             if proc.returncode != 0:
                 raise RuntimeError(f"train stage failed with exit code {proc.returncode}")
@@ -187,7 +232,22 @@ def main():
         raise SystemExit(code)
 
 
-def _execute_local_training(job_path: Path, out: Path, max_retries: int, heartbeat_seconds: int, orchestrated: bool, run_data: bool, run_preprocess: bool, run_train: bool, run_eval: bool):
+def _execute_local_training(
+    job_path: Path,
+    out: Path,
+    max_retries: int,
+    heartbeat_seconds: int,
+    orchestrated: bool,
+    run_data: bool,
+    run_preprocess: bool,
+    run_train: bool,
+    run_eval: bool,
+    queue_heartbeats: Path | None = None,
+    heartbeat_ticket: str = "",
+    heartbeat_role: str = "worker",
+    node_id: str = "",
+    gpu_devices: list[str] | None = None,
+):
     state_path = out / "cluster_run_state.json"
     heartbeat_path = out / "cluster_heartbeat.json"
     pipeline_state_path = out / "pipeline_stage_state.json"
@@ -209,9 +269,8 @@ def _execute_local_training(job_path: Path, out: Path, max_retries: int, heartbe
         def _run_train_stage():
             proc = subprocess.Popen(
                 [sys.executable, str(train_script), "--job", str(job_path)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
+                stdout=None,
+                stderr=None,
             )
 
             while proc.poll() is None:
@@ -220,13 +279,17 @@ def _execute_local_training(job_path: Path, out: Path, max_retries: int, heartbe
                     "attempt": attempt,
                     "updated_at_utc": _utc_now(),
                 })
+                if queue_heartbeats is not None and heartbeat_ticket:
+                    _write_json(queue_heartbeats / f"{heartbeat_ticket}.json", {
+                        "ticket": heartbeat_ticket,
+                        "role": heartbeat_role,
+                        "node_id": node_id or _safe_node_id(),
+                        "status": "alive",
+                        "gpu_devices": gpu_devices or [],
+                        "attempt": attempt,
+                        "updated_at_utc": _utc_now(),
+                    })
                 time.sleep(heartbeat_seconds)
-
-            stdout, stderr = proc.communicate()
-            if stdout:
-                print(stdout, end="", flush=True)
-            if stderr:
-                print(stderr, end="", file=sys.stderr, flush=True)
 
             if proc.returncode != 0:
                 raise RuntimeError(f"train stage failed with exit code {proc.returncode}")
@@ -300,6 +363,7 @@ def _run_sharedfs_cluster(job: dict, job_path: Path, out: Path, max_retries: int
 
     role = (os.environ.get("LLMFORGE_CLUSTER_ROLE", "auto") or "auto").strip().lower()
     node_id = _safe_node_id()
+    gpu_devices = _detect_gpu_devices()
     ticket = f"{out.name}-{int(time.time())}"
     ticket_payload = {
         "ticket": ticket,
@@ -328,7 +392,7 @@ def _run_sharedfs_cluster(job: dict, job_path: Path, out: Path, max_retries: int
         })
 
     if role == "coordinator":
-        return _wait_for_ticket_result(ticket, out, queue_result, queue_heartbeats, heartbeat_seconds)
+        return _wait_for_ticket_result(ticket, out, queue_result, queue_heartbeats, heartbeat_seconds, node_id, gpu_devices)
 
     if role in {"worker", "auto"}:
         # Worker mode: claim one pending ticket and execute.
@@ -349,6 +413,11 @@ def _run_sharedfs_cluster(job: dict, job_path: Path, out: Path, max_retries: int
                 run_preprocess=bool(payload.get("run_preprocess", run_preprocess)),
                 run_train=bool(payload.get("run_train", run_train)),
                 run_eval=bool(payload.get("run_eval", run_eval)),
+                queue_heartbeats=queue_heartbeats,
+                heartbeat_ticket=str(payload.get("ticket", ticket)),
+                heartbeat_role="worker",
+                node_id=node_id,
+                gpu_devices=gpu_devices,
             )
             _write_json(queue_result / f"{payload.get('ticket', ticket)}.json", {
                 "ticket": payload.get("ticket", ticket),
@@ -372,11 +441,20 @@ def _run_sharedfs_cluster(job: dict, job_path: Path, out: Path, max_retries: int
                 "ticket": ticket,
                 "role": "auto-coordinator",
                 "node_id": node_id,
+                "status": "alive",
+                "gpu_devices": gpu_devices,
                 "updated_at_utc": _utc_now(),
             })
             time.sleep(max(1, heartbeat_seconds))
 
-        result_code = _execute_local_training(job_path, out, max_retries, heartbeat_seconds, orchestrated, run_data, run_preprocess, run_train, run_eval)
+        result_code = _execute_local_training(
+            job_path, out, max_retries, heartbeat_seconds, orchestrated, run_data, run_preprocess, run_train, run_eval,
+            queue_heartbeats=queue_heartbeats,
+            heartbeat_ticket=ticket,
+            heartbeat_role="auto-coordinator",
+            node_id=node_id,
+            gpu_devices=gpu_devices,
+        )
         _write_json(queue_result / f"{ticket}.json", {
             "ticket": ticket,
             "status": "completed" if result_code == 0 else "failed",
@@ -399,7 +477,7 @@ def _claim_pending_ticket(queue_pending: Path, queue_claimed: Path, node_id: str
     return None
 
 
-def _wait_for_ticket_result(ticket: str, out: Path, queue_result: Path, queue_heartbeats: Path, heartbeat_seconds: int):
+def _wait_for_ticket_result(ticket: str, out: Path, queue_result: Path, queue_heartbeats: Path, heartbeat_seconds: int, node_id: str, gpu_devices: list[str]):
     result_path = queue_result / f"{ticket}.json"
     while True:
         if result_path.exists():
@@ -421,6 +499,9 @@ def _wait_for_ticket_result(ticket: str, out: Path, queue_result: Path, queue_he
         _write_json(queue_heartbeats / f"{ticket}.json", {
             "ticket": ticket,
             "role": "coordinator",
+            "node_id": node_id,
+            "status": "waiting-worker",
+            "gpu_devices": gpu_devices,
             "updated_at_utc": _utc_now(),
         })
         _write_json(out / "cluster_heartbeat.json", {

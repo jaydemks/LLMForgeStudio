@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLM Forge Studio From Scratch End-to-End Quickstart Guide</title>
+  <style>
+    :root {
+      --bg0: #0b0f14;
+      --bg1: #121a23;
+      --line: rgba(120,190,255,0.45);
+      --text: #e8f0fb;
+      --muted: #9eb3c9;
+      --ok: #52d3a2;
+      --warn: #ffcb6b;
+      --card-w: min(780px, 88vw);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      color: var(--text);
+      font-family: "Segoe UI", Inter, system-ui, sans-serif;
+      background:
+        radial-gradient(1200px 600px at 20% -10%, #1c2f47 0%, transparent 60%),
+        linear-gradient(160deg, var(--bg0), var(--bg1));
+    }
+
+    a { color: #8dd4ff; text-decoration: underline; user-select: text; -webkit-user-select: text; pointer-events: auto; }
+    a:hover { text-decoration: underline; }
+
+    #bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: .85;
+    }
+
+    .scene-wrap {
+      position: relative;
+      z-index: 2;
+      height: calc(var(--steps, 10) * 165vh);
+    }
+
+    .sticky {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .stage {
+      position: absolute;
+      inset: 0;
+      will-change: transform;
+    }
+
+    .timeline-core {
+      position: absolute;
+      left: 50%;
+      top: 10vh;
+      width: 2px;
+      height: 80vh;
+      transform: translateX(-50%);
+      background: linear-gradient(to bottom, transparent, var(--line), transparent);
+      box-shadow: 0 0 18px rgba(101,185,255,.55);
+      z-index: 1;
+      pointer-events: none;
+      display: none;
+    }
+
+    .step {
+      user-select: text;
+      -webkit-user-select: text;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: var(--card-w);
+      max-height: 78vh;
+      overflow: auto;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.20);
+      background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.06));
+      box-shadow: 0 14px 34px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.16);
+      backdrop-filter: blur(16px) saturate(140%);
+      padding: 18px 18px 16px;
+      transition: opacity .18s linear, filter .18s linear;
+      z-index: 2;
+    }
+
+    .step::-webkit-scrollbar { width: 8px; }
+    .step::-webkit-scrollbar-thumb { background: rgba(255,255,255,.25); border-radius: 12px; }
+
+    .step h2 {
+      margin: 0 0 10px;
+      font-size: clamp(16px, 1.5vw, 22px);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      display: inline-grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 30%, #a4ddff, #4f93bf);
+      color: #00131f;
+      font-weight: 700;
+      font-size: 13px;
+      box-shadow: 0 0 14px rgba(120,200,255,.45);
+      flex: 0 0 auto;
+    }
+
+    .title-only {
+      text-align: center;
+      padding: 24px 16px 12px;
+    }
+    .title-only h1 {
+      margin: 0;
+      font-size: clamp(24px, 3.4vw, 44px);
+      letter-spacing: .6px;
+    }
+    .title-only p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: clamp(12px, 1.5vw, 15px);
+    }
+
+    .muted { color: var(--muted); }
+    .kpis { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.08);
+      font-size: 12px;
+      color: #d7e8fb;
+    }
+
+    ul, ol { margin: 8px 0 0 20px; }
+    li { margin: 4px 0; }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: rgba(255,255,255,.09);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 6px;
+      padding: 1px 6px;
+      color: #d5ecff;
+    }
+
+    .link-row { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .copy {
+      border: 1px solid rgba(255,255,255,.25);
+      background: rgba(255,255,255,.08);
+      color: #dff1ff;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .copy:hover { background: rgba(255,255,255,.15); }
+
+    .status-ok { color: #52d3a2; }
+    .status-warn { color: #ffcb6b; }
+
+    .footer-note {
+      position: fixed;
+      right: 14px;
+      bottom: 10px;
+      z-index: 3;
+      font-size: 11px;
+      color: #c4d7ea;
+      opacity: .8;
+      background: rgba(0,0,0,.3);
+      border: 1px solid rgba(255,255,255,.15);
+      padding: 6px 9px;
+      border-radius: 8px;
+      backdrop-filter: blur(8px);
+    }
+
+    .timeline-nav {
+      position: fixed;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 4;
+      width: min(270px, 34vw);
+      max-height: 78vh;
+      overflow: auto;
+      padding: 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(10,16,24,.42);
+      backdrop-filter: blur(10px);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: #d7e7f8;
+      text-align: left;
+      padding: 7px 6px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background .16s ease, color .16s ease;
+    }
+    .nav-item:hover { background: rgba(255,255,255,.1); }
+    .nav-item.active {
+      background: rgba(120,190,255,.22);
+      color: #f2f9ff;
+    }
+
+    .nav-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(170,210,255,.75);
+      box-shadow: 0 0 0 0 rgba(130, 200, 255, 0);
+      flex: 0 0 auto;
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .nav-item.active .nav-dot {
+      transform: scale(1.25);
+      background: #9fd9ff;
+      box-shadow: 0 0 0 6px rgba(130, 200, 255, .16);
+    }
+
+    .nav-label {
+      line-height: 1.3;
+      color: inherit;
+      opacity: .95;
+    }
+
+    @media (max-width: 900px) {
+      .step { width: 92vw; padding: 14px; border-radius: 14px; }
+      .timeline-core { display: none; }
+      .timeline-nav {
+        width: calc(100vw - 24px);
+        max-height: 22vh;
+        top: auto;
+        bottom: 10px;
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="bg"></canvas>
+  <nav class="timeline-nav" id="timelineNav" aria-label="Timeline Navigation"></nav>
+
+  <div class="scene-wrap" id="wrap" style="--steps: 10;">
+    <div class="sticky">
+      <div class="stage" id="stage"></div>
+    </div>
+  </div>
+
+  <div class="footer-note">Interactive glass timeline</div>
+
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script>
+    const steps = [
+      {
+        title: "",
+        body: `
+          <div class="title-only">
+            <h1>LLM Forge Studio From Scratch End-to-End Quickstart Guide</h1>
+            <p>Version v1.0.0 · Scroll to move forward in depth</p>
+          </div>
+        `,
+        chips: []
+      },
+      {
+        title: "Goal",
+        body: `
+          <p class="muted">Run one complete real workflow and validate that the final model works in Ollama chat.</p>
+          <ol>
+            <li>Gather dataset from provider links and/or your own local files/folders</li>
+            <li>Train tokenizer + model from scratch</li>
+            <li>Fine-tune with cleaner chat/instruction data</li>
+            <li>Convert/finalize for Ollama</li>
+            <li>Query and evaluate</li>
+          </ol>
+        `,
+        chips: ["End-to-end", "Real runtime", "Ollama-ready"]
+      },
+      {
+        title: "Gather Dataset (Providers and/or Local Files)",
+        body: `
+          <p>You can use only provider links, only your own local files/folders, or a combination of both.</p>
+          <p class="muted">Use 2-3 sources only if you want to test merge/composition.</p>
+          <ul>
+            <li>Hugging Face MIT: <a href="https://huggingface.co/datasets?license=license%3Amit" target="_blank">https://huggingface.co/datasets?license=license%3Amit</a></li>
+            <li>Hugging Face Apache-2.0: <a href="https://huggingface.co/datasets?license=license%3Aapache-2.0" target="_blank">https://huggingface.co/datasets?license=license%3Aapache-2.0</a></li>
+            <li>Hugging Face CC0: <a href="https://huggingface.co/datasets?license=license%3Acc0-1.0" target="_blank">https://huggingface.co/datasets?license=license%3Acc0-1.0</a></li>
+            <li>Kaggle entrypoint: <a href="https://www.kaggle.com/datasets?license=gpl" target="_blank">https://www.kaggle.com/datasets?license=gpl</a></li>
+            <li>Zenodo search: <a href="https://zenodo.org/search" target="_blank">https://zenodo.org/search</a></li>
+            <li>EU datasets: <a href="https://data.europa.eu/en/download-datasets" target="_blank">https://data.europa.eu/en/download-datasets</a></li>
+          </ul>
+        `,
+        chips: ["License gate", "Provider URLs", "Local path supported"]
+      },
+      {
+        title: "Convert + Merge + Validate",
+        body: `
+          <ol>
+            <li><code>Fetch Source</code> for each source</li>
+            <li><code>Convert Parquet</code> when needed</li>
+            <li>Set weights (e.g. <code>1.0 / 0.7 / 0.5</code>)</li>
+            <li>Dedup policy: <code>line</code> or <code>paragraph</code></li>
+            <li><code>Merge</code> -> <code>Validate</code> -> <code>Apply recommendations</code></li>
+          </ol>
+          <p class="muted">Expected artifacts: provenance + readiness/analytics outputs in gather workspace.</p>
+        `,
+        chips: ["Advanced merge", "Dedup", "Readiness checks"]
+      },
+      {
+        title: "Tokenization",
+        body: `
+          <ol>
+            <li>Use recommendation (or Byte-level BPE)</li>
+            <li>Train tokenizer</li>
+            <li>Confirm <code>tokenizer.json</code> exists</li>
+          </ol>
+        `,
+        chips: ["Tokenizer", "Stable config"]
+      },
+      {
+        title: "Model + Training from Scratch",
+        body: `
+          <ol>
+            <li>Use realistic small/medium model for first real run</li>
+            <li>Training profile: <code>Balanced</code> or recommendation</li>
+            <li>Enable eval suite (<code>quick-5</code> or <code>standard-10</code>)</li>
+            <li>Train to completion</li>
+          </ol>
+          <p>Minimum artifacts:</p>
+          <ul>
+            <li><code>model.pt</code></li>
+            <li><code>checkpoint_manifest.json</code></li>
+            <li><code>train_log.jsonl</code></li>
+          </ul>
+        `,
+        chips: ["From scratch", "Eval", "Artifacts"]
+      },
+      {
+        title: "Fine-Tuning Material",
+        body: `
+          <p>Use cleaner conversation/instruction data for behavior shaping.</p>
+          <ul>
+            <li>Instruction/chat datasets with permissive licenses</li>
+            <li>Or curated internal JSONL data</li>
+            <li>Preferred format: <code>prompt/response</code> or <code>messages</code></li>
+          </ul>
+          <p class="muted">Goal: stronger chat behavior for final Ollama usage.</p>
+        `,
+        chips: ["Quality over volume", "Behavior tuning"]
+      },
+      {
+        title: "Fine-Tuning (Ollama Tab)",
+        body: `
+          <ol>
+            <li><code>Step 1: Prepare</code></li>
+            <li><code>Step 2: Start Fine-Tune</code></li>
+            <li><code>Step 3: Convert to GGUF</code></li>
+            <li><code>Step 4: Finalize Export</code></li>
+          </ol>
+          <p>Required final bundle in <code>fine_tuning_ollama/exports/ollama_finetune/</code>:</p>
+          <ul>
+            <li><code>model.gguf</code></li>
+            <li><code>Modelfile</code></li>
+            <li><code>ollama_handoff_status.json</code> = <code>ready</code></li>
+            <li><code>ollama_bundle_validation.json</code></li>
+          </ul>
+        `,
+        chips: ["Sequential gating", "GGUF", "Finalize ready"]
+      },
+      {
+        title: "Import to Ollama + Chat",
+        body: `
+          <ol>
+            <li>Import finalized bundle in local Ollama</li>
+            <li>Run a representative set of prompts for your target use case (for example 10-20 prompts)</li>
+            <li>Evaluate coherence, instruction following, style consistency</li>
+          </ol>
+        `,
+        chips: ["Local test", "Real query validation"]
+      },
+      {
+        title: "PASS / FAIL",
+        body: `
+          <p class="status-ok"><strong>PASS</strong> when:</p>
+          <ol>
+            <li>Pipeline completes without blocking failures</li>
+            <li>Handoff status is <code>ready</code></li>
+            <li>Model answers with acceptable quality in Ollama</li>
+          </ol>
+          <p class="status-warn"><strong>FAIL</strong> when:</p>
+          <ol>
+            <li>Conversion/finalization cannot reach <code>ready</code></li>
+            <li>Artifacts are missing/inconsistent</li>
+            <li>Chat behavior is unusable for target</li>
+          </ol>
+        `,
+        chips: ["Objective criteria", "Release gating"]
+      }
+    ];
+
+    const stage = document.getElementById('stage');
+    const wrap = document.getElementById('wrap');
+    const timelineNav = document.getElementById('timelineNav');
+
+    function createStep(step, idx) {
+      const card = document.createElement('article');
+      card.className = 'step';
+      card.dataset.index = idx;
+      card.innerHTML = step.title
+        ? `
+            <h2><span class="badge">${idx + 1}</span>${step.title}</h2>
+            ${step.body}
+            <div class="kpis">${(step.chips || []).map(c => `<span class="chip">${c}</span>`).join('')}</div>
+          `
+        : `${step.body}`;
+
+      card.querySelectorAll('a').forEach(a => {
+        const row = document.createElement('div');
+        row.className = 'link-row';
+        const btn = document.createElement('button');
+        btn.className = 'copy';
+        btn.type = 'button';
+        btn.textContent = 'Copy link';
+        btn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(a.href);
+            btn.textContent = 'Copied';
+            setTimeout(() => btn.textContent = 'Copy link', 1200);
+          } catch {
+            btn.textContent = 'Copy failed';
+            setTimeout(() => btn.textContent = 'Copy link', 1200);
+          }
+        });
+        row.appendChild(btn);
+        a.parentElement.appendChild(row);
+      });
+
+      stage.appendChild(card);
+      return card;
+    }
+
+    const cards = steps.map(createStep);
+    const navButtons = [];
+    wrap.style.setProperty('--steps', String(steps.length));
+
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+    function layout() {
+      const spread = Math.max(1200, Math.min(1900, window.innerWidth * 1.35));
+      cards.forEach((card, i) => {
+        card.dataset.baseZ = String(-i * spread);
+      });
+      update();
+    }
+
+    function update() {
+      const r = wrap.getBoundingClientRect();
+      const total = Math.max(1, wrap.offsetHeight - window.innerHeight);
+      const passed = clamp(-r.top, 0, total);
+      const progress = passed / total;
+
+      const spread = Math.max(1200, Math.min(1900, window.innerWidth * 1.35));
+      const travel = progress * ((steps.length - 1) * spread);
+      stage.style.transform = `translateY(0)`;
+      const globalStep = travel / spread;
+      let activeIndex = 0;
+      let bestDist = Number.POSITIVE_INFINITY;
+
+      cards.forEach((card, i) => {
+        const z = +card.dataset.baseZ;
+        const rel = z + travel;
+        const localLinear = globalStep - i + 0.55; // ensures title/step0 is visible at start
+        const cycle = clamp(localLinear, 0, 1);
+
+        // Per-card cycle:
+        // 1) approach (appear + move in)
+        // 2) hold (stay still for a while)
+        // 3) exit (keep moving toward user while fading out)
+
+        let scale;
+        let opacity;
+        let blur;
+
+        if (cycle <= 0.45) {
+          // approach
+          const t = cycle / 0.45;
+          scale = 0.58 + t * 0.42;
+          opacity = 0.10 + t * 0.90;
+          blur = 3.2 - t * 2.6;
+        } else if (cycle <= 0.72) {
+          // hold (stops and stays readable)
+          const t = (cycle - 0.45) / (0.72 - 0.45);
+          scale = 1.0 + t * 0.02;
+          opacity = 1.0;
+          blur = 0.35;
+        } else {
+          // exit towards camera + dissolve
+          const t = (cycle - 0.72) / (1 - 0.72);
+          scale = 1.02 + t * 0.78;
+          opacity = 1.0 - t;
+          blur = 0.4 + t * 3.4;
+        }
+
+        opacity = clamp(opacity, 0, 1);
+        blur = Math.max(0, blur);
+
+        card.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        card.style.opacity = opacity.toFixed(3);
+        card.style.filter = `blur(${blur.toFixed(2)}px)`;
+
+
+        const holdCenter = 0.585;
+        const d = Math.abs(cycle - holdCenter);
+        if (d < bestDist) {
+          bestDist = d;
+          activeIndex = i;
+        }
+      });
+
+      cards.forEach((card, idx) => {
+        const visibleOpacity = Number(card.style.opacity || '0');
+        const isFront = idx === activeIndex;
+
+        // Keep only visible cards in the hit-test tree.
+        card.style.visibility = visibleOpacity > 0.03 ? 'visible' : 'hidden';
+
+        // Only the front card gets interactions.
+        card.style.pointerEvents = isFront ? 'auto' : 'none';
+
+        // Ensure front card is always above every other transformed card.
+        card.style.zIndex = isFront ? '9999' : String(100 + idx);
+      });
+      navButtons.forEach((b, idx) => b.classList.toggle('active', idx === activeIndex));
+    }
+
+    function scrollToStep(stepIndex) {
+      const total = Math.max(1, wrap.offsetHeight - window.innerHeight);
+      // Keep this aligned with update():
+      // localLinear = globalStep - i + 0.55
+      // hold center ~= 0.585  => globalStep ~= i + (0.585 - 0.55) = i + 0.035
+      const holdCenter = 0.585;
+      const offset = 0.55;
+      const targetGlobal = Math.max(0, stepIndex + (holdCenter - offset));
+      const targetProgress = clamp(targetGlobal / Math.max(1, steps.length - 1), 0, 1);
+      const wrapTop = wrap.getBoundingClientRect().top + window.scrollY;
+      const y = wrapTop + (total * targetProgress);
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+
+    function buildNav() {
+      steps.forEach((s, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'nav-item';
+        const label = s.title && s.title.trim().length > 0 ? s.title : 'Typical Workflow';
+        btn.innerHTML = `<span class=\"nav-dot\"></span><span class=\"nav-label\">${label}</span>`;
+        btn.addEventListener('click', () => scrollToStep(i));
+        timelineNav.appendChild(btn);
+        navButtons.push(btn);
+      });
+    }
+
+    buildNav();
+
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', layout);
+    layout();
+
+    // Three.js background
+    const canvas = document.getElementById('bg');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0, 12);
+
+    const geo = new THREE.BufferGeometry();
+    const count = 700;
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      positions[i * 3 + 0] = (Math.random() - 0.5) * 30;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 20;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 35;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = new THREE.PointsMaterial({ color: 0x87caff, size: 0.045, transparent: true, opacity: 0.8 });
+    const points = new THREE.Points(geo, mat);
+    scene.add(points);
+
+    const glowGeo = new THREE.TorusKnotGeometry(2.6, 0.05, 180, 16);
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0x2e8bc7, transparent: true, opacity: 0.22 });
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+    scene.add(glow);
+
+    function onResize() {
+      renderer.setSize(window.innerWidth, window.innerHeight, false);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      layout();
+    }
+    window.addEventListener('resize', onResize);
+    onResize();
+
+    function tick() {
+      const t = performance.now() * 0.00008;
+      points.rotation.y = t * 0.24;
+      points.rotation.x = Math.sin(t * 0.9) * 0.025;
+      glow.rotation.x += 0.00035;
+      glow.rotation.y -= 0.00028;
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    tick();
+  </script>
+</body>
+</html>

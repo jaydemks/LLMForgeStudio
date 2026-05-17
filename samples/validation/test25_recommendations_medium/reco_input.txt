@@ -1,0 +1,2 @@
+Questo dataset medio serve per verificare suggerimenti tokenizer/profile.
+Contiene frasi semplici in italiano e qualche frase tecnica.

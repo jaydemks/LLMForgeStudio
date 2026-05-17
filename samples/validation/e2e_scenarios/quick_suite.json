@@ -1,0 +1,11 @@
+{
+  "name": "quick-suite",
+  "description": "Fast local validation using existing default run artifacts.",
+  "scenarios": [
+    {
+      "name": "default-run",
+      "runDir": "runs/default",
+      "outputSubdir": "default-run"
+    }
+  ]
+}

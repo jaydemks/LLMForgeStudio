@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0",
+  "updatedAtUtc": "2026-05-16T00:00:00Z",
+  "supportedInputFormats": [
+    "hf-transformers",
+    "existing-gguf"
+  ],
+  "supportedConverterVersions": [
+    "0.1.0"
+  ],
+  "notes": "Update this matrix only after validating converter binary compatibility on real checkpoints.",
+  "platforms": [
+    "win-x64",
+    "linux-x64"
+  ]
+}

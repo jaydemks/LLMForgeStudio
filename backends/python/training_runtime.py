@@ -100,7 +100,7 @@ def build_amp(device, cfg: dict):
         return False, None, torch.float32
 
     dtype = torch.bfloat16 if precision == "bf16" else torch.float16
-    scaler = torch.cuda.amp.GradScaler(enabled=(dtype == torch.float16))
+    scaler = torch.amp.GradScaler("cuda", enabled=(dtype == torch.float16))
     return True, scaler, dtype
 
 

@@ -1,6 +1,8 @@
 import argparse
 import json
 import os
+import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +22,10 @@ from training_runtime import (
     maybe_quantize_dynamic,
 )
 from eval_suite import run_eval_suite
+
+ERROR_DATASET_EMPTY = "DATASET_EMPTY"
+ERROR_TRAIN_WINDOW_INVALID = "TRAIN_WINDOW_INVALID"
+ERROR_RUNTIME_EXCEPTION = "RUNTIME_EXCEPTION"
 
 
 def write_quantization_report(out_dir: Path, quant_meta: dict, train_loss: float, val_loss: float):
@@ -103,18 +109,47 @@ def write_export_artifacts(out_dir: Path, model, cfg, tcfg: dict):
             result["onnx_path"] = str(failure_path)
 
     if export_gguf:
-        # Foundation path: write structured placeholder metadata for external conversion toolchains.
-        gguf_path = out_dir / "model.gguf.placeholder.json"
-        payload = {
-            "status": "placeholder",
-            "message": "GGUF export requires external conversion toolchain.",
-            "modelWeightsPath": str(out_dir / "model.pt"),
-            "tokenizerPath": str(out_dir / "tokenizer.json"),
-            "config": cfg.__dict__,
-        }
-        gguf_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        result["gguf_path"] = str(gguf_path)
-        result["gguf_status"] = "placeholder"
+        gguf_model_path = out_dir / "model.gguf"
+        gguf_status_path = out_dir / "gguf_conversion_status.json"
+        runtime_script = Path(__file__).resolve().parent / "gguf_converter_runtime.py"
+        try:
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(runtime_script),
+                    "--input-dir",
+                    str(out_dir),
+                    "--output",
+                    str(gguf_model_path),
+                    "--status",
+                    str(gguf_status_path),
+                    "--attempts",
+                    "2",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            status_payload = {}
+            if gguf_status_path.exists():
+                status_payload = json.loads(gguf_status_path.read_text(encoding="utf-8"))
+            status = str(status_payload.get("status", "failed")).lower()
+            if status == "completed" and gguf_model_path.exists():
+                result["gguf_path"] = str(gguf_model_path)
+                result["gguf_status"] = "exported"
+            elif status in {"blocked", "failed"}:
+                result["gguf_path"] = str(gguf_status_path)
+                result["gguf_status"] = status
+            else:
+                result["gguf_path"] = str(gguf_status_path)
+                result["gguf_status"] = "failed"
+            if proc.returncode not in (0, 2, 3, 4, 5, 6, 7):
+                result["gguf_status"] = "failed"
+        except Exception as ex:
+            failure_path = out_dir / "gguf_conversion_runtime_error.txt"
+            failure_path.write_text(str(ex), encoding="utf-8")
+            result["gguf_status"] = "failed"
+            result["gguf_path"] = str(failure_path)
 
     return result
 
@@ -209,10 +244,21 @@ def encode(text: str, stoi):
 
 
 def get_batch(data, block_size, batch_size, device):
-    ix = torch.randint(len(data) - block_size - 1, (batch_size,))
-    x = torch.stack([data[i : i + block_size] for i in ix])
-    y = torch.stack([data[i + 1 : i + block_size + 1] for i in ix])
-    return x.to(device), y.to(device)
+    n = int(len(data))
+    if n < 3:
+        raise RuntimeError(f"{ERROR_TRAIN_WINDOW_INVALID}: token stream too short for batching (len={n})")
+
+    effective_block = max(1, min(int(block_size), n - 2))
+    upper = n - effective_block - 1
+    if upper <= 0:
+        raise RuntimeError(
+            f"{ERROR_TRAIN_WINDOW_INVALID}: invalid batch window (len={n}, block={block_size}, effective_block={effective_block})"
+        )
+
+    ix = torch.randint(upper, (batch_size,))
+    x = torch.stack([data[i : i + effective_block] for i in ix])
+    y = torch.stack([data[i + 1 : i + effective_block + 1] for i in ix])
+    return x.to(device), y.to(device), effective_block
 
 
 def resolve_device(force_cpu: bool):
@@ -284,6 +330,8 @@ def main():
     )
 
     text = clean_text(text, tcfg)
+    if not text or not text.strip():
+        raise RuntimeError(f"{ERROR_DATASET_EMPTY}: dataset text empty after loading/cleaning")
 
     stoi, itos = build_char_tokenizer(text)
     ids = encode(text, stoi)
@@ -291,12 +339,30 @@ def main():
         ids = ids * (2048 // max(1, len(ids)) + 1)
 
     split = int(len(ids) * float(tcfg.get("TrainSplit", 0.9)))
+    split = max(2, min(split, len(ids) - 2))
     train_ids = torch.tensor(ids[:split], dtype=torch.long)
     val_ids = torch.tensor(ids[split:], dtype=torch.long)
 
+    requested_block_size = int(mcfg.get("BlockSize", 128))
+    max_train_block = max(8, len(train_ids) - 2)
+    safe_block_size = max(8, min(requested_block_size, max_train_block))
+    if safe_block_size != requested_block_size:
+        print(
+            json.dumps(
+                {
+                    "event": "block_size_auto_clamped",
+                    "requested_block_size": requested_block_size,
+                    "effective_block_size": safe_block_size,
+                    "train_token_count": int(len(train_ids)),
+                    "message": "Block size reduced automatically because dataset token count is too small for requested context window.",
+                }
+            ),
+            flush=True,
+        )
+
     cfg = GPTConfig(
         vocab_size=max(2, len(stoi)),
-        block_size=int(mcfg.get("BlockSize", 128)),
+        block_size=safe_block_size,
         n_layer=int(mcfg.get("Layers", 4)),
         n_head=int(mcfg.get("Heads", 4)),
         n_embd=int(mcfg.get("EmbeddingSize", 128)),
@@ -325,15 +391,15 @@ def main():
         start = time.time()
         for step in range(max_steps + 1):
             active_train, curriculum_frac = maybe_curriculum_view(train_ids, step, max_steps, tcfg)
-            x, y = get_batch(active_train, cfg.block_size, batch_size, device)
+            x, y, eff_block = get_batch(active_train, cfg.block_size, batch_size, device)
 
             optimizer.zero_grad(set_to_none=True)
             loss_acc = 0.0
             loss = None
             for _ in range(grad_accum_steps):
-                x, y = get_batch(active_train, cfg.block_size, batch_size, device)
+                x, y, eff_block = get_batch(active_train, cfg.block_size, batch_size, device)
                 if use_amp:
-                    with torch.cuda.amp.autocast(dtype=amp_dtype):
+                    with torch.amp.autocast(device_type="cuda", dtype=amp_dtype):
                         _, loss = model(x, y)
                         loss = loss / grad_accum_steps
                     scaler.scale(loss).backward()
@@ -360,12 +426,12 @@ def main():
             if step % eval_every == 0:
                 model.eval()
                 with torch.no_grad():
-                    vx, vy = get_batch(val_ids if len(val_ids) > cfg.block_size + 2 else train_ids, cfg.block_size, batch_size, device)
+                    vx, vy, _ = get_batch(val_ids if len(val_ids) > cfg.block_size + 2 else train_ids, cfg.block_size, batch_size, device)
                     _, vloss = model(vx, vy)
                 model.train()
 
                 elapsed = max(1e-6, time.time() - start)
-                tokens_done = (step + 1) * batch_size * cfg.block_size
+                tokens_done = (step + 1) * batch_size * max(1, int(eff_block))
                 last_loss = float(loss_acc)
                 last_vloss = float(vloss.item())
                 metrics = eval_metrics(last_loss, last_vloss)
@@ -463,4 +529,15 @@ def main():
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as ex:
+        msg = str(ex).strip() or repr(ex)
+        code = ERROR_RUNTIME_EXCEPTION
+        if msg.startswith(f"{ERROR_DATASET_EMPTY}:"):
+            code = ERROR_DATASET_EMPTY
+        elif msg.startswith(f"{ERROR_TRAIN_WINDOW_INVALID}:"):
+            code = ERROR_TRAIN_WINDOW_INVALID
+        payload = {"error_code": code, "message": msg}
+        print("LLMFORGE_ERROR: " + json.dumps(payload, ensure_ascii=False), flush=True)
+        sys.exit(1)

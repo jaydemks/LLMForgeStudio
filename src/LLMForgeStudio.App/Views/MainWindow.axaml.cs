@@ -102,6 +102,99 @@ public partial class MainWindow : Window
         OpenUrl("https://github.com/angelos-p/llm-from-scratch/blob/main/docs/01-tokenization.md");
     }
 
+    private async void OnBrowseOllamaFtDatasetClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm || StorageProvider is null) return;
+
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            AllowMultiple = false,
+            Title = "Select fine-tuning dataset folder"
+        });
+        var folder = folders.FirstOrDefault();
+        if (folder is not null)
+        {
+            vm.OllamaFtDatasetPath = folder.Path.LocalPath;
+            vm.OllamaFtStatusText = "Dataset folder selected.";
+            return;
+        }
+
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            AllowMultiple = false,
+            Title = "Select fine-tuning dataset file",
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Dataset Files") { Patterns = ["*.txt", "*.md", "*.csv", "*.jsonl", "*.json"] }
+            ]
+        });
+        var file = files.FirstOrDefault();
+        if (file is null) return;
+
+        vm.OllamaFtDatasetPath = file.Path.LocalPath;
+        vm.OllamaFtStatusText = "Dataset file selected.";
+    }
+
+    private async void OnBrowseOllamaFtOutputClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm || StorageProvider is null) return;
+
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            AllowMultiple = false,
+            Title = "Select fine-tuning output folder"
+        });
+
+        var folder = folders.FirstOrDefault();
+        if (folder is null) return;
+
+        vm.OllamaFtOutputDirectory = folder.Path.LocalPath;
+        vm.OllamaFtStatusText = "Output folder selected.";
+    }
+
+    private async void OnBrowseGatherSourceClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm || StorageProvider is null) return;
+
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            AllowMultiple = false,
+            Title = "Select dataset source folder"
+        });
+        var folder = folders.FirstOrDefault();
+        if (folder is not null)
+        {
+            vm.GatherSourceInput = folder.Path.LocalPath;
+            return;
+        }
+
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            AllowMultiple = false,
+            Title = "Select dataset source file",
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Dataset Files") { Patterns = ["*.txt", "*.md", "*.csv", "*.jsonl", "*.json", "*.parquet"] }
+            ]
+        });
+        var file = files.FirstOrDefault();
+        if (file is null) return;
+        vm.GatherSourceInput = file.Path.LocalPath;
+    }
+
+    private async void OnBrowseGatherWorkspaceClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm || StorageProvider is null) return;
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            AllowMultiple = false,
+            Title = "Select gather workspace folder"
+        });
+        var folder = folders.FirstOrDefault();
+        if (folder is null) return;
+        vm.GatherWorkspaceDirectory = folder.Path.LocalPath;
+    }
+
     private void OnOpenAuthorWebsiteClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         OpenUrl("https://www.giovannidemiccoli.it");

@@ -13,10 +13,15 @@ This order is intended for GitHub release notes readability:
 6. Eval suite and release gates (20-task harness, regression, RC scorecard)
 7. UX guided flow and wizards
 8. Tokenization evolution
+9. Dataset gathering & smart ingestion
+10. Ollama integration track (bundle export + dedicated fine-tuning workspace)
+11. Frontier hardening track
+12. End-to-end production closure track
+13. Multi-target export ecosystem track (post-Ollama)
 
 ## Validation Tracking
 - Manual validation checklist: [RELEASE_VALIDATION_CHECKLIST.md](RELEASE_VALIDATION_CHECKLIST.md)
-- Use validation IDs `VAL-01..VAL-20` to align roadmap and manual test outcomes.
+- Use validation IDs `VAL-01..VAL-37`, `M11-01..M11-07`, `M12-01..M12-08`, and `M13-01..M13-07` to align roadmap and manual test outcomes.
 
 ## Status Legend
 - `Completed Verified`: implemented and validated with build/tests in this repo.
@@ -55,6 +60,7 @@ This order is intended for GitHub release notes readability:
 - `Completed To Be Tested` Job orchestrator adapter layer (local scheduler first, cloud/HPC adapters later). `VAL-07`
 - `Completed To Be Tested` Fault-tolerant run state foundation (`cluster_runner.py` + `cluster_run_state.json` + `cluster_heartbeat.json` + retry policy). `VAL-07`
 - `Completed To Be Tested` SharedFS cluster mode (coordinator/worker queue with atomic claim + result/heartbeat), usable across multiple machines sharing one folder. `VAL-07`
+- `Completed To Be Tested` Cluster live sync observability panel foundation (coordinator/worker realtime heartbeat readout, node list, shared-root queue counters, and remote GPU telemetry when reported by nodes). `VAL-37`
 - `Completed Verified` Central artifact registry foundation (`artifact_registry.json` indexing checkpoints/cluster/eval artifacts).
 
 ### M4 - Alignment & Post-Training
@@ -70,7 +76,7 @@ This order is intended for GitHub release notes readability:
 - `Completed Verified` Post-training dynamic quantization (baseline). `VAL-12`
 - `Completed Verified` PTQ calibration foundation (profile + calibration samples metadata in manifest). `VAL-12`
 - `Completed Verified` QAT path foundation for selected model sizes (QAT intent fields + `qat_report.json` artifact/manifest metadata). `VAL-13`
-- `Completed Verified` Export targets foundation (`ONNX`, `GGUF` placeholder metadata) with manifest export status. `VAL-14`
+- `Completed Verified` Export targets foundation (`ONNX`, `GGUF` runtime conversion status artifact) with manifest export status. `VAL-14`
 - `Completed Verified` Quantization profiles (`INT8`, `INT4`) foundation with quality/latency reports (`quantization_report.json` + `quantization_report.md`). `VAL-12`
 
 ### M6 - Evaluation Suite (20 Benchmarks Target)
@@ -101,7 +107,122 @@ This order is intended for GitHub release notes readability:
 - `Completed Verified` WordPiece tokenizer option (lite implementation).
 - `Completed Verified` Guided tokenizer profiles with recommended value badges per mode (incl. ideal-values live readout in Tokenization UI).
 
-## Verification Notes (2026-05-14)
+### M9 - Ollama Integration & Dedicated Fine-Tuning UI
+- `Completed Verified` Manual handoff Ollama export bundle in run directory (`exports/ollama`) with `model.gguf` + `Modelfile` packaging rules. `VAL-21`
+- `Completed Verified` Dedicated `Export for Ollama` UI action with readiness gating (enabled only when GGUF artifact is really available). `VAL-22`
+- `Completed Verified` Dedicated `Fine-Tuning (Ollama)` tab separated from from-scratch workflow (new layout + dedicated controls). `VAL-23`
+- `Completed Verified` Fine-tuning runtime integration for local Ollama-oriented adapters (separated backend path + dedicated artifacts). `VAL-24`
+- `Completed Verified` Fine-tuning export packaging for Ollama handoff (`exports/ollama_finetune`) with run metadata and reproducibility notes. `VAL-24`
+- `Completed Verified` Step-by-step gated pipeline UX for fine-tune flow (`Prepare -> Start -> Convert -> Finalize`) with sequential button enablement and pipeline progress bar.
+
+### M10 - Dataset Gathering & Smart Ingestion (Immediate Priority)
+- `Completed Verified` New dedicated UI section `Gather Dataset` for end-to-end dataset acquisition and preparation. `VAL-25`
+- `Completed To Be Tested` Integrated remote dataset retrieval workflows (URL/file/folder source staging to local workspace). `VAL-25`
+- `Completed Verified` Mandatory visual+functional license gate before source fetch (explicit user acknowledgement required).
+- `Completed To Be Tested` Hugging Face dataset license resolver + permissive-license allowlist gate (blocks restricted/unknown licenses before fetch). `VAL-25`
+- `Completed To Be Tested` Parquet ingestion/conversion pipeline to LLM Forge compatible formats (`jsonl`) via integrated backend script. `VAL-26`
+- `Completed Verified` Unified dataset workspace manager to combine:
+  - downloaded sources
+  - user local files/folders
+  - generated/converted outputs
+- `Completed Verified` Automated dataset validation checks with immediate training-readiness feedback:
+  - size/coverage warnings
+  - format/schema consistency checks
+  - language/domain hints
+  - duplicate/noise quality checks `VAL-27`
+- `Completed Verified` Smart recommendations engine connected to existing LLM Forge configs:
+  - recommended tokenizer mode/preset based on gathered dataset
+  - recommended training profile/preset based on dataset scale/quality
+  - apply-to-config action before training start `VAL-28`
+- `Completed Verified` Dataset-to-pipeline handoff actions to move directly from gathered dataset into: `VAL-29`
+  1. from-scratch training flow
+  2. fine-tuning flow
+- `Completed Verified` Guided sequential Gather UX with numbered steps (`1..7`), stage-gated button enablement, and async progress feedback to keep UI responsive during long operations. `VAL-25`
+- `Completed Verified` Multi-provider dataset connectors architecture foundation (provider contract + provider detection + per-provider fetch/compliance hooks + unsupported-provider graceful block). `VAL-30`
+- `Completed To Be Tested` Provider set expansion beyond Hugging Face (HTTP/local/HF enabled in current phase), with per-provider compliance hooks. `VAL-30`
+- `Completed To Be Tested` Multi-source dataset composition (staged sources + merge into unified dataset artifact):
+  - single dataset from one provider
+  - one dataset built from multiple providers
+  - one dataset built from multiple datasets across one or more providers `VAL-31`
+- `Completed Verified` Advanced dataset merge/orchestration workspace with source-level toggles, weighting, dedup policies, and provenance tracking (`dataset_merged_provenance.json`). `VAL-36`
+- `Completed Verified` Per-source and merged-dataset legal policy checks foundation:
+  - license compatibility matrix across mixed sources
+  - automatic block on restricted/unknown licenses
+  - explicit user acknowledgement + traceable compliance snapshot `VAL-32`
+- `Completed Verified` Automatic schema harmonization for mixed-source ingestion foundation (JSONL/JSON/CSV normalization, chat/instruction extraction, unified merge text output). `VAL-33`
+- `Completed Verified` Advanced quality analytics dashboard foundation for gathered/merged datasets:
+  - coverage, duplicates, language mix, format drift, outlier/noise indicators
+  - readiness score and action recommendations `VAL-34`
+- `Completed Verified` Tokenizer/training bootstrap from gathered datasets with one-click apply + direct jump to Tokenization section. `VAL-35`
+
+### M11 - Frontier Hardening (Deferred Until M10 Completes)
+- `Completed To Be Tested` Native GGUF conversion integration foundation in-app (internal converter runtime orchestration script + converter status artifact + compatibility metadata path).  
+  Note: still requires configured converter executable in current phase. `M11-01`
+- `Completed To Be Tested` Ollama-ready finalization automation path (auto convert+finalize after successful fine-tuning when packaging is enabled and converter succeeds). `M11-02`
+- `Completed To Be Tested` Robust failure taxonomy + retry UX foundation for conversion/export stages (`errorCode`-based status + retry attempts + actionable status/log messages). `M11-03`
+- `Completed To Be Tested` Fine-tuning engine hardening foundation for larger checkpoints (adaptive batch fallback on OOM + resume state file + runtime diagnostics snapshot). `M11-04`
+- `Completed To Be Tested` End-to-end integration tests foundation for `from-scratch -> export -> fine-tune -> convert -> finalize`:
+  - scenario-pack suite runner (`backends/python/e2e_release_gate.py --scenario-pack ...`)
+  - aggregate CI-friendly artifacts (`e2e_suite_summary.json` + `e2e_suite_summary.md`) `M11-05`
+- `Completed To Be Tested` Reproducible runtime packaging foundation (runtime environment snapshots/artifacts per run). `M11-06`
+- `Completed To Be Tested` Multi-backend fine-tuning architecture foundation (backend target selector + backend field propagated in job/manifest, Ollama-first). `M11-07`
+
+### M12 - End-to-End Production Closure (Final Functional Gap)
+- `Completed To Be Tested` Native GGUF conversion internalized foundation:
+  - converter resolution order (`env -> bundled -> fallback copy-existing-gguf`)
+  - converter runtime compatibility metadata and deterministic status artifact path
+  - semantic version probe (`--version`) + compatibility matrix gate (`converter_compatibility_matrix.json`)
+  - reduced dependency on manual env-only configuration (bundled path supported)
+  - **Remaining to reach 100% closure (`M12-01` done criteria):**
+    1. ship converter binary/script set in release artifacts for supported OS targets
+    2. validate runtime behavior on real converters/checkpoints across supported OS targets
+    3. guarantee conversion availability in default install path (no manual copy step) `M12-01`
+- `Completed To Be Tested` Ollama finalization deterministic readiness foundation:
+  - explicit bundle validation artifact before final handoff state
+  - `ready` state emitted only when required export files are complete/non-empty
+  - blocked status with actionable message on validation failure `M12-02`
+- `Completed To Be Tested` Hardware/device classification hardening:
+  - filter virtual display adapters from detected GPU list
+  - classify training-capable accelerators vs non-training adapters
+  - hardware-aware recommendation guardrails for CPU/GPU/VRAM tiers `M12-03`
+- `Completed To Be Tested` Legal/compliance hard gate completion for dataset composition:
+  - strict per-source + merged-source compatibility matrix
+  - non-overridable block for incompatible/restricted combinations
+  - compliance report artifact for release/legal audit `M12-04`
+- `Completed To Be Tested` Full automated end-to-end integration suite:
+  - `dataset -> tokenization -> model -> training -> eval -> export -> fine-tune -> convert -> finalize`
+  - reproducible CI scenario packs with pass/fail gate artifacts `M12-05`
+- `Completed To Be Tested` Runtime packaging closure:
+  - lockfile-driven Python/toolchain reproducibility
+  - deterministic runtime environment snapshot validation
+  - preflight mismatch detection with actionable remediation `M12-06`
+- `Completed To Be Tested` Long-run resilience closure:
+  - robust resume/recovery semantics for training, fine-tuning, conversion, and finalization
+  - crash-safe stage checkpoints and safe retry continuation `M12-07`
+- `Planned` UI/UX production polish closure (post-functional):
+  - finalize modern glass antracite visual system
+  - full section-level readability pass (no floating status text)
+  - accessibility/contrast consistency checks across light/dark modes `M12-08`
+
+### M13 - Multi-Target Export Ecosystem (Post-Ollama)
+- `Planned` Export adapter architecture (`IExportAdapter`-style contract) with target capability checks and deterministic error taxonomy. `M13-01`
+- `Planned` Native Hugging Face export target (checkpoint packaging + tokenizer/config validation + manifest wiring). `M13-02`
+- `Planned` ONNX Runtime production target (graph export profile presets + runtime validation bundle). `M13-03`
+- `Planned` TensorRT target foundation (GPU capability guardrails + conversion preflight + unsupported-device hard blocks). `M13-04`
+- `Planned` Unified export matrix UI (target selector, readiness state, per-target requirements, and step-by-step guidance). `M13-05`
+- `Planned` Per-target compatibility registry (tool versions, supported model families, supported input formats). `M13-06`
+- `Planned` End-to-end export certification suite across targets (artifact validator + smoke inference + reproducibility snapshot). `M13-07`
+
+## Sequential Delivery Mode (User-Gated)
+- Work is delivered in small sequential blocks.
+- Each block is followed by manual user validation before the next block.
+- Roadmap/checklist status is updated only after user confirmation on real runtime behavior.
+
+## Verification Notes (2026-05-16)
 - `Completed Verified`: `dotnet build LLMForgeStudio.sln` passed (0 errors).
-- `Completed Verified`: `dotnet test LLMForgeStudio.sln` passed (23/23 tests).
-- Runtime behaviors in Python backend are marked `Completed To Be Tested` until end-to-end manual training runs confirm them on real hardware (`VAL-01..VAL-20`).
+- `Completed Verified`: Python runner checks passed for new fine-tuning backend scripts.
+- `Completed Verified`: Gather Dataset UI now exposes ordered numbered actions with gating (`1..7`) and async progress bar updates.
+- `Completed Verified`: Gather advanced merge UI/build path added (source toggles, weights, dedup policy, provenance artifact, compliance block) and compiles cleanly.
+- `Completed Verified`: M11 foundation code compiles (`dotnet build ... -o /tmp/llmforge-m11-build`, 0 errors) and Python syntax checks pass for updated runtime scripts.
+- `Completed Verified`: E2E gate suite runner now supports scenario packs with aggregate summary artifacts (`e2e_suite_summary.json/.md`) and per-scenario report folders (`M11-05` foundation).
+- Runtime behaviors beyond local checkpoints (especially GGUF converter toolchain runtime on real checkpoints and long-run fine-tune stress scenarios) remain to be validated in M11 manual tests.

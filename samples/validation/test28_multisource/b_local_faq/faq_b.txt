@@ -1,0 +1,4 @@
+Domanda: Cos'è un tokenizer?
+Risposta: Converte testo in token numerici.
+Domanda: Cos'è la validation loss?
+Risposta: Misura errore su dati non visti.
