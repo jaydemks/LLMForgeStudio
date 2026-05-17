@@ -20,8 +20,6 @@ Even with guided defaults and built-in automation, high-quality model outcomes a
 
 - Total files (project scope): `195`
 - Total lines (absolute, all text files in scope): `40,725`
-- Total lines (manual/editable): `40,725`
-- Total lines (auto-generated): `0`
 
 Counting note:
 - Scope includes `samples/`.
