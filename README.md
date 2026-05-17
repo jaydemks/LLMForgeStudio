@@ -2,8 +2,8 @@
 
 Open-source desktop app (**.NET 8 + Avalonia + Python backend**) to build, train, fine-tune, evaluate, and export local LLMs with a guided end-to-end workflow from dataset to Ollama-ready handoff.
 
-> **Current Version:** `v1.0.3`  
-> **Release Date:** `2026-05-16`
+> **Current Version:** `v1.0.4`  
+> **Release Date:** `2026-05-17`
 > **Status:** `Beta (Experimental)`  
 > This project is actively evolving and may include unstable behaviors on some workflows/hardware combinations.
 
@@ -52,7 +52,7 @@ Primary use cases:
 > **Real multi-GPU and multi-machine cluster tests are not completed yet** and are planned in the next days.
 > Since this project is open and free, the community is welcome to test these scenarios and report issues with as much detail as possible (hardware, OS, config, logs, repro steps), so fixes can be shipped quickly.
 
-## v1.0.3 UI Gallery (Click to Expand)
+## v1.0.4 UI Gallery (Click to Expand)
 
 | Hardware | Gather Dataset | Dataset | Tokenization |
 |---|---|---|---|
