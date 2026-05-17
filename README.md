@@ -18,9 +18,9 @@ Even with guided defaults and built-in automation, high-quality model outcomes a
 
 ## Project Size Snapshot
 
-- Total files (project scope): `197`
-- Total lines (absolute, all text files in scope): `19,010`
-- Total lines (manual/editable): `19,010`
+- Total files (project scope): `195`
+- Total lines (absolute, all text files in scope): `40,725`
+- Total lines (manual/editable): `40,725`
 - Total lines (auto-generated): `0`
 
 Counting note:
