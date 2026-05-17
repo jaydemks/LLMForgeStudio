@@ -56,7 +56,7 @@ Primary use cases:
 
 | Hardware | Gather Dataset | Dataset | Tokenization |
 |---|---|---|---|
-| <a href="docs/images/ui-01-hardware.png"><img src="docs/images/ui-01-hardware.png" width="260" alt="Hardware Section" /></a> | <a href="docs/images/ui-02-gather-dataset.png"><img src="docs/images/ui-02-gather-dataset.png" width="260" alt="Gather Dataset Section" /></a> | <a href="docs/images/ui-03-dataset.png"><img src="docs/images/ui-03-dataset.png" width="260" alt="Dataset Section" /></a> | <a href="docs/images/ui-04-tokenization.png"><img src="docs/images/ui-04-tokenization.png" width="260" alt="Tokenization Section" /></a> |
+| <a href="docs/images/ui-01-hardware.png"><img src="docs/images/ui-01-hardware.png" width="260" alt="Hardware Section" /></a> | <a href="docs/images/ui-02-gather-dataset_v2.png"><img src="docs/images/ui-02-gather-dataset_v2.png" width="260" alt="Gather Dataset Section" /></a> | <a href="docs/images/ui-03-dataset.png"><img src="docs/images/ui-03-dataset.png" width="260" alt="Dataset Section" /></a> | <a href="docs/images/ui-04-tokenization.png"><img src="docs/images/ui-04-tokenization.png" width="260" alt="Tokenization Section" /></a> |
 
 | Model | Training | Generation | Fine-Tuning (Ollama, Experimental) |
 |---|---|---|---|
