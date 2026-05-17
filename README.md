@@ -129,6 +129,7 @@ Community note:
 - Implementation roadmap: [ROADMAP.md](ROADMAP.md)
 - Manual validation steps: [RELEASE_VALIDATION_CHECKLIST.md](RELEASE_VALIDATION_CHECKLIST.md)
 - Current release summary: [RELEASE_NOTES_v1.0.3.md](RELEASE_NOTES_v1.0.3.md)
+- Archived release notes: [OLD_RELEASES_NOTES](OLD_RELEASES_NOTES)
 - SEO/discoverability setup playbook: [GITHUB_SEO_PROFILE.md](GITHUB_SEO_PROFILE.md)
 
 ## Optional Attribution (No Obligation)
